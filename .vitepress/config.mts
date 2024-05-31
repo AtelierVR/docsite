@@ -6,6 +6,7 @@ export default defineConfig({
   titleTemplate: " Nox",
   title: "NoxAPI",
   description: "An API for creating federated game platforms.",
+  head: [['link', { rel: 'icon', href: '/favicon.png' }]],
   themeConfig: {
     logo: {
       dark: "/logo.png",
