@@ -23,7 +23,38 @@ export default defineConfig({
         text: "Documentation",
         items: [
           { text: "Introduction", link: "/docs/" },
-          { text: "Kit de Création de Contenu", link: "/docs/cck/" },
+          { 
+            text: "Kit de Création de Contenu", 
+            link: "/docs/cck/",
+            items: [
+              {
+                text: "Introduction",
+                link: "/docs/cck/",
+              },
+              {
+                text: "Créer un monde",
+                link: "/docs/cck/worlds",
+              },
+              {
+                text: "Créer un avatar",
+                link: "/docs/cck/avatars",
+              },
+              {
+                text: "Créer un mod",
+                link: "/docs/cck/modding",
+                items: [
+                  {
+                    text: "Getting Started",
+                    link: "/docs/cck/modding/getting-started",
+                  }
+                ]
+              },
+              {
+                text: "Références du CCK",
+                link: "/docs/cck/references",
+              }
+            ],
+           },
           {
             text: "Systèmes",
             items: [
