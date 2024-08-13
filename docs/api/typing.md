@@ -7,6 +7,7 @@ Voici la liste des types principaux utilisés dans l'API.
 Un timestamp en millisecondes, il est sous forme d'un ulong.
 
 ### Exemple
+
 ```json
 1620000000000
 ```
@@ -27,6 +28,7 @@ Il s'agit des informations sur le serveur.
 | `public_key` | `string` | La clé publique du serveur | `true` |
 
 ### Exemple
+
 ```jsonc
 {
     "id": "avr.social",
@@ -55,6 +57,7 @@ Les passerelles du serveur.
 | `cdn` | `URL` | L'orgine CDN du serveur | `true` |
 
 ### Exemple
+
 ```jsonc
 {
     "http": "https://avr.social",
@@ -62,3 +65,36 @@ Les passerelles du serveur.
     "proxy": "https://proxy.avr.social",
     "cdn": "https://cdn.avr.social"
 }
+```
+
+## Tag Délivreurs
+
+| Valeur | Description |
+| --- | --- |
+| `sys` | Tag donné automatiquement par le système |
+| `dft` | Tag donné par défaut à la configuration du serveur |
+| `slf` | Tag donné par l'utilisateur lui-même |
+| `adm` | Tag donné par un administrateur |
+| `itr` | Tag donné par le serveur qui répond à la requête (en cas de serveur intermédiaire) |
+
+## EPlatform
+
+| Valeur | Description |
+| --- | --- |
+| `windows` | Windows |
+| `linux` | Linux |
+| `macos` | MacOS |
+| `android` | Android |
+| `ios` | iOS |
+| `web` | Web |
+
+## EEngine
+
+| Valeur | Description |
+| --- | --- |
+| `unity` | Unity |
+| `unreal` | Unreal |
+| `godot` | Godot |
+| `source` | Source |
+| `custom` | Custom |
+| `browser` | Browser |

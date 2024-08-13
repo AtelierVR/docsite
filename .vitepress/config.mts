@@ -23,8 +23,8 @@ export default defineConfig({
         text: "Documentation",
         items: [
           { text: "Introduction", link: "/docs/" },
-          { 
-            text: "Kit de Création de Contenu", 
+          {
+            text: "Kit de Création de Contenu",
             link: "/docs/cck/",
             items: [
               {
@@ -52,23 +52,6 @@ export default defineConfig({
               {
                 text: "Références du CCK",
                 link: "/docs/cck/references",
-              }
-            ],
-           },
-          {
-            text: "Systèmes",
-            items: [
-              {
-                text: "Master",
-                link: "/docs/master/",
-              },
-              {
-                text: "Relai",
-                link: "/docs/relay/",
-              },
-              {
-                text: "Client",
-                link: "/docs/client/",
               }
             ],
           },
@@ -121,8 +104,73 @@ export default defineConfig({
                   }
                 ],
               },
-              { text: "Monde", link: "/docs/api/worlds/" },
+              {
+                text: "Instance",
+                items: [
+                  {
+                    text: "Typage instance",
+                    link: "/docs/api/instances/typing",
+                  },
+                  {
+                    text: "Requêtes",
+                    items: [
+                      { text: "GET /:se", link: "/docs/api/instances/get" },
+                      { text: "GET /search", link: "/docs/api/instances/search" },
+                    ]
+                  }
+                ]
+              },
+              {
+                text: "Monde",
+                link: "/docs/api/worlds/",
+                items: [
+                  {
+                    text: "Typage monde",
+                    link: "/docs/api/worlds/typing",
+                  },
+                  {
+                    text: "Requêtes",
+                    items: [
+                      { text: "PUT /", link: "/docs/api/worlds/make" },
+                      { text: "GET /:se", link: "/docs/api/worlds/get" },
+                      { text: "POST /:se", link: "/docs/api/worlds/update" },
+                      { text: "GET /search", link: "/docs/api/worlds/search" },
+                    ]
+                  }
+                ]
+              },
               { text: "Avatar", link: "/docs/api/avatars" },
+              {
+                text: "Challenge",
+                items: [
+                  {
+                    text: "Typage challenge",
+                    link: "/docs/api/challenge/typing",
+                  },
+                  {
+                    text: "Requêtes",
+                    items: [
+                      { text: "GET /verify", link: "/docs/api/challenge/verify" },
+                    ]
+                  }
+                ],
+              },
+              {
+                text: "Relai",
+                items: [
+                  {
+                    text: "Typage relai",
+                    link: "/docs/api/relay/typing",
+                  },
+                  {
+                    text: "Requêtes",
+                    items: [
+                      { text: "POST /checkbearer", link: "/docs/api/relay/checkbearer" },
+                      { text: "POST /update", link: "/docs/api/relay/update" },
+                    ]
+                  }
+                ],
+              }
             ],
           },
           {

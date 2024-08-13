@@ -3,6 +3,7 @@
 Voici la liste des types d'utilisateurs disponibles.
 
 ## IUser
+
 | Propriété | Type | Description | Optionnel |
 | --- | --- | --- | --- |
 | `id` | `uint` | L'identifiant de l'utilisateur | `false` |
@@ -16,6 +17,7 @@ Voici la liste des types d'utilisateurs disponibles.
 | `rank` | `float[-1;0-1]` | Le rang de l'utilisateur | `false` |
 
 ### Exemple
+
 ```json
 {
     "id": 1,
@@ -36,7 +38,37 @@ Voici la liste des types d'utilisateurs disponibles.
 }
 ```
 
+## ISession
+
+Il fait référence à la session de l'utilisateur.
+| Propriété | Type | Description | Optionnel |
+| --- | --- | --- | --- |
+| `token` | `string` | Le token de session | `false` |
+| `expires` | `TimestampMS` | La date d'expiration de la session | `false` |
+| `created_at` | `TimestampMS` | La date de création de la session | `false` |
+
+### Exemple
+
+```json
+{
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+    "expires": 1614556800000,
+    "created_at": 1614556800000
+}
+```
+
+## IUserLogin
+
+Il fait référence à l'utilisateur qui vient de se connecter.
+::: info
+Etendu de [ISession](#isession).
+:::
+| Propriété | Type | Description | Optionnel |
+| --- | --- | --- | --- |
+| `user` | [`IUserMe`](#iuserme) | Les informations de l'utilisateur | `false` |
+
 ## IUserMe
+
 Il fait référence à l'utilisateur actuellement authentifié.
 ::: info
 Etendu de [IUser](#iuser).
@@ -48,6 +80,7 @@ Etendu de [IUser](#iuser).
 | `home` | `WorldReference` | L'URL de la page d'accueil de l'utilisateur | `true` |
 
 ### Exemple
+
 ```json
 {
     "id": 1,
@@ -72,21 +105,14 @@ Etendu de [IUser](#iuser).
 ```
 
 ## TUserTag
+
 Il s'agit d'un tag d'utilisateur.
 Voici une liste de tags d'utilisateurs disponibles.
 Ces tags sont utilisés pour définir les permissions et les rôles des utilisateurs.
-Il sont séparé en deux parties, le délivreur et la valeur, séparé par `:`.
-
-### Délivreurs
-| Valeur | Description |
-| --- | --- |
-| `sys` | Tag donné automatiquement par le système |
-| `dft` | Tag donné par défaut à la configuration du serveur |
-| `slf` | Tag donné par l'utilisateur lui-même |
-| `adm` | Tag donné par un administrateur |
-| `itr` | Tag donné par le serveur qui répond à la requête (en cas de serveur intermédiaire) |
+Il sont séparé en deux parties, le [délivreur](/docs/api/typing.md#tag-délivreurs) et la valeur, séparé par `:`.
 
 ### Valeurs
+
 | Valeur | Description | Délivreurs recommandés |
 | --- | --- | --- |
 | `admin` | Est un administrateur | `sys \| adm` |
@@ -102,6 +128,7 @@ Il sont séparé en deux parties, le délivreur et la valeur, séparé par `:`.
 | `can_world_asset_delete` | Peut supprimer ses assets de mondes | `dft` |
 
 ### Exemple
+
 ```jsonc
 [ // Liste de tags
     "sys:admin", // Est un administrateur, par le système
@@ -110,20 +137,24 @@ Il sont séparé en deux parties, le délivreur et la valeur, séparé par `:`.
 ```
 
 ## TUserSelector
+
 Il s'agit d'un sélecteur d'utilisateur.
 Il peut être un identifiant, un nom d'utilisateur ou un sélécteur d'utilisateur avancé.
 
 ### Identifiant
+
 Un identifiant est un nombre entier positif sur 32 bits (uint).
 Il est unique pour chaque utilisateur.
 
 ### Nom d'utilisateur
+
 Un nom d'utilisateur est une chaîne de caractères alphanumériques.
 ::: info
 Il se référe à l'expression régulière `/^[a-z0-9_.-]{3,16}$/`.
 :::
 
 ### Sélecteur avancé
+
 Un sélécteur avancé est une chaîne de caractères qui commence par `@`.
 Il désigne un utilisateur ou un groupe d'utilisateurs.
 | Valeur | Description | Multiple |
