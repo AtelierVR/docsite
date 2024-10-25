@@ -1,0 +1,43 @@
+// #region types
+export interface IWellKnown {
+  "$schema": URL;
+  "address": string;
+  "contact": string;
+  "port": ushort;
+  "wellknown_endpoint": URL;
+  "server_endpoint": URL;
+  "engine_name": string;
+  "engine_version": semver;
+  "api_version": semver;
+  "supported_tokens": string[];
+  "status": "online" | "starting" | "stopping" | "offline" | "security" | "error" | "maintenance" | "deprecated";
+  "security_features_disabled"?: string[];
+  "security_message"?: string;
+  "deprecated_migration"?: string;
+  "deprecated_migration_closing_date"?: timestamp;
+  "error_message"?: string;
+  "maintenance_message"?: string;
+  "maintenance_end_date"?: timestamp;
+  "maintenance_start_date"?: timestamp;
+}
+// #endregion types
+// #region example
+{
+  "$schema": "https://nox.hactazia.fr/schemas/well-known.json",
+  "address": "localhost",
+  "contact": "contact@localhost",
+  "port": 53032,
+  "wellknown_endpoint": "https://localhost:53032/.well-known/nox",
+  "server_endpoint": "https://localhost:53032/api/server",
+  "engine_name": "NoxMaster",
+  "engine_version": "1.0.0",
+  "api_version": "1.0.0",
+  "supported_tokens": [
+    "Bearer",
+    "Challenge",
+    "Badge",
+    "Integrity"
+  ],
+  "status": "ok"
+}
+// #endregion example

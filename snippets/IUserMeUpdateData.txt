@@ -1,0 +1,20 @@
+// #region types
+export interface IUserMeUpdateData {
+    username?: string;
+    display?: string;
+    email?: string;
+    password?: string;
+    thumbnail?: string | null | "NULL";
+    banner?: string | null | "NULL";
+    links?: string[];
+    home?: string | null | "NULL";
+}
+// #endregion types
+// #region example
+{
+    "username": "salut",
+    "display": "S a l u t",
+    "email": "NULL",
+    "thumbnail": null
+}
+// #endregion example

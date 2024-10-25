@@ -1,0 +1,43 @@
+// #region types
+export interface IServer {
+    id: string;             // identifiant unique du sous-serveur
+    title: string;          // titre du serveur
+    description: string;    // description du serveur
+    address: string;        // adresse de résolution du serveur
+    gateways: {
+        http: URL;          // Origine HTTP du serveur
+        ws: URL;            // URL vers le serveur WebSocket
+    };
+    features: string[];     // liste des fonctionnalités du serveur
+    version: semver;        // version du serveur (semver)
+    ready_at: timestamp;    // timestamp de disponibilité du serveur
+    icon: URL;              // URL vers l'icône du serveur
+    public: string;         // clé publique du serveur
+}
+// #endregion types
+// #region example
+{
+  "data": {
+    "id": "MIICIjANBgkqhkiG9w0BAQEF",
+    "title": "Reileta Local Dev",
+    "description": "Reileta Local Dev",
+    "address": "localhost",
+    "gateways": {
+      "http": "http://localhost:53032",
+      "ws": "ws://localhost:53032/api/ws"
+    },
+    "features": [
+      "world",
+      "instance",
+      "server",
+      "user"
+    ],
+    "version": "1.0.0",
+    "ready_at": 1729804465576,
+    "icon": "http://localhost:53032/icon.png",
+    "public_key": "-----BEGIN PUBLIC KEY-----\n[...]\n-----END PUBLIC KEY-----\n"
+  },
+  "time": 1729805167418,
+  "request": "/api/server"
+}
+// #endregion example

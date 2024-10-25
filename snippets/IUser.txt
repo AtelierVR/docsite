@@ -1,0 +1,42 @@
+// #region types
+export interface IUser {
+    id: uint32;
+    username: string;
+    display: string;
+    server: string;
+    tags: string[];
+    thumbnail: URL | null;
+    banner: URL | null;
+    links: URL[];
+    rank: float;
+}
+// #endregion types
+// #region example
+{
+    "data": {
+      "id": 1,
+      "username": "hactazia",
+      "display": "Hactazia",
+      "server": "localhost",
+      "tags": [
+        "dft:fetch_external",
+        "dft:can_instance_create",
+        "dft:can_world_asset_create",
+        "dft:can_world_asset_update",
+        "dft:can_file_upload",
+        "dft:can_world_edit",
+        "dft:can_self_edit",
+        "dft:can_world_create"
+      ],
+      "thumbnail": "http://localhost:53032/icon.jpg",
+      "banner": "http://localhost:53032/banner.jpg",
+      "links": [
+        "https://www.hactazia.fr",
+        "https://github.com/hactazia"
+      ],
+      "rank": 1
+    },
+    "time": 1729812821178,
+    "request": "/api/users/hactazia"
+}
+// #endregion example
