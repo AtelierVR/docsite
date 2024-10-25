@@ -3,7 +3,6 @@
 Cette requête permet de récupérer des informations sur un utilisateur.
 Elle est utilisée pour obtenir des informations sur un utilisateur, telles que son nom, son identifiant, et d'autres informations pertinentes.
 Cette requête est accessible par tout le monde, même les utilisateurs non authentifiés.
-Certaines informations peuvent être masquées pour des raisons de confidentialité.
 
 ## Requête
 
@@ -14,9 +13,9 @@ GET /api/users/:search
 
 ## Paramètres
 
-| Paramètre | Type | Description |
-|---|---|---|
-| `search` | `string` | Identifiant, Nom de l'utilisateur, ou selecteur de recherche. |
+| Paramètre | Type     | Description                                                   |
+|-----------|----------|---------------------------------------------------------------|
+| `search`  | `string` | Identifiant, Nom de l'utilisateur, ou selecteur de recherche. |
 
 ::: info
 Un selecteur de recherche est un mot-clé pécédé d'un symbole `@` qui permet de rechercher des utilisateurs selon des critères spécifiques.

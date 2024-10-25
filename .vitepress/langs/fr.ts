@@ -112,6 +112,16 @@ function sidebarReference(): DefaultTheme.SidebarItem[] {
                                         { text: 'Mes Informations', link: 'me' },
                                         { text: 'Mettre à jour', link: 'update' }
                                     ]
+                                },
+                                {
+                                    text: 'Mondes',
+                                    collapsed: false,
+                                    link: 'worlds',
+                                    base: '/reference/master/api/worlds/',
+                                    items: [
+                                        { text: 'Informations', link: 'get' },
+                                        { text: 'Rechercher', link: 'search' }
+                                    ]
                                 }
                             ]
                         }

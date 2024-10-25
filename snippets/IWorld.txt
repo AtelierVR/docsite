@@ -1,0 +1,33 @@
+// #region types
+
+export interface IRWorld {
+    id: uint32;
+    title: string | null;
+    description: string | null;
+    capacity: uint16;
+    tags: string[];
+    thumbnail: string | null;
+    owner: string;
+    server: string;
+}
+// #endregion types
+// #region example
+{
+  "data": {
+    "id": 1,
+    "title": "New World",
+    "description": "This is a new world.",
+    "server": "localhost",
+    "thumbnail": "http://localhost:53032/api/files/5.png",
+    "capacity": 86,
+    "tags": [
+      "usr:public",
+      "sys:fallback",
+      "sys:default"
+    ],
+    "owner": "1@localhost"
+  },
+  "time": 1729863958191,
+  "request": "/api/worlds/1"
+}
+// #endregion example

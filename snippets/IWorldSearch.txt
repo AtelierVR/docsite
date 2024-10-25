@@ -1,0 +1,38 @@
+// #region types
+export interface IWorldSearch {
+    total: uint32;
+    query: string;
+    ids: string[];
+    limit: uint32;
+    offset: uint32;
+    worlds: IWorld[];
+}
+// #endregion types
+// #region example
+{
+  "data": {
+    "total": 1,
+    "search": "new",
+    "limit": 10,
+    "offset": 0,
+    "worlds": [
+      {
+        "id": 1,
+        "title": "New World",
+        "description": "This is a new world.",
+        "server": "localhost",
+        "capacity": 86,
+        "tags": [
+          "usr:public",
+          "sys:fallback",
+          "sys:default"
+        ],
+        "owner": "1@localhost",
+        "thumbnail": "http://localhost:53032/api/files/5.png",
+      }
+    ]
+  },
+  "time": 1729866194125,
+  "request": "/api/worlds/search?query=new"
+}
+// #endregion example

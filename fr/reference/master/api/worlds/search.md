@@ -1,12 +1,17 @@
 # Recherche d'utilisateurs
 
-Cette section vous permet de rechercher des utilisateurs sur un serveur Master.
+Cette section vous permet de rechercher des mondes sur un serveur Master.
 Cette requête utilise divers paramètres pour filtrer les résultats.
+
+::: info
+Cette requête est se limite aux mondes publiques avec l'étiquette `usr:public`.
+Plus d'informations sur les étiquettes sont disponibles dans la section [Étiquettes](/reference/master/worlds/tags).
+:::
 
 ## Requête
 
 ```http
-GET /api/users/search
+GET /api/worlds/search
 ```
 
 ## Paramètres
@@ -16,17 +21,17 @@ Lors d'une recherche avec query et id, la recherche se fera sur le résultat id 
 
 | Paramètre | Type                   | Description                                                      |
 |-----------|------------------------|------------------------------------------------------------------|
-| `query`   | `string`               | Identifiant, Nom de l'utilisateur. Il est insensible à la casse. |
+| `query`   | `string`               | Titre ou description du monde. Il est insensible à la casse.     |
 | `limit`   | `uint`                 | Nombre maximum de résultats à retourner. Min: 1, Max: 100.       |
 | `offset`  | `uint`                 | Nombre de résultats à sauter. Min: 0.                            |
-| `id`      | `string[] \| string`   | Liste d'identifiants/noms d'utilisateurs à rechercher.           |
+| `id`      | `string[] \| string`   | Liste d'identifiants des mondes à rechercher.                    |
 
 ## Réponse
 
 ::: code-group
-<<< @/snippets/IUserSearch.txt#types{ts} [Formats de réponse]
-<<< @/snippets/IUserSearch.txt#example{ts} [Exemple de réponse]
-<<< @/snippets/IUser.txt#types{ts} [IUser]
+<<< @/snippets/IWorldSearch.txt#types{ts} [Formats de réponse]
+<<< @/snippets/IWorldSearch.txt#example{ts} [Exemple de réponse]
+<<< @/snippets/IWorld.txt#types{ts} [IWorld]
 :::
 
 ## Explicatifs utils
@@ -36,12 +41,12 @@ Ce nombre est le nombre total de résultats trouvés par la requête.
 :::
 
 ::: details `query` - La requête de recherche
-Cette valeur est la requête de recherche utilisée pour filtrer les résultats par id, nom d'utilisateur, et nom d'affichage (insensible à la casse).
+Cette valeur est la requête de recherche utilisée pour filtrer les résultats par titre et description (insensible à la casse).
 :::
 
-::: details `ids` - Les identifiants des utilisateurs
-Cette liste est la liste des identifiants des utilisateurs à chercher.
-Ces valeurs respecte ce format `<id|username>[@<server>]`.
+::: details `ids` - Les identifiants des mondes
+Cette liste est la liste des identifiants des worlds à chercher.
+Ces valeurs respecte ce format `<id>[@<server>]`.
 Les valeurs qui indiquent qu'il ne sont pas sur le serveur actuel sont ignorées, ce doit êtres des adresse « locale ».
 :::
 
@@ -57,7 +62,7 @@ La valeur est un nombre entier positif, par défaut 0.
 S'il y a un nombre inférieur à 0, la valeur sera ajustée.
 :::
 
-::: details `users` - Les utilisateurs trouvés
-Cette liste est la liste des utilisateurs trouvés par la requête.
-Plus d'informations sur les utilisateurs sont disponibles dans la section [Utilisateurs](/reference/master/users).
+::: details `worlds` - Les mondes trouvés
+Cette liste est la liste des mondes trouvés par la requête.
+Plus d'informations sur les mondes sont disponibles dans la section [Mondes](/reference/master/worlds).
 :::
