@@ -97,7 +97,7 @@ function sidebarReference(): DefaultTheme.SidebarItem[] {
                                     link: 'server',
                                     base: '/reference/master/api/server/',
                                     items: [
-                                        { text: 'Informations', link: 'server' },
+                                        { text: 'Informations', link: 'get' },
                                         { text: 'Well-Known', link: 'well-known' },
                                     ]
                                 },

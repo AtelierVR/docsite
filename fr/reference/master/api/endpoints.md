@@ -114,10 +114,10 @@ Le champ `data` contient les informations demandées par la requête.
 Les données générales sont des données qui sont utilisées pour identifier le serveur et ce que ce dernier peut faire.
 Elles sont utilisées pour les informations de base, comme les versions, les informations de contact, etc.
 
-| Méthode | Requête              | Description                                       |                                                                          |
-|---------|----------------------|---------------------------------------------------|--------------------------------------------------------------------------|
-| GET     | `/server`            | Récupère les informations générales du serveur.   | [<i class="bi bi-code-slash"></i>](/reference/master/api/server.md)      |
-| GET     | `/.well-known/nox`   | WellKnow pour Nox.                                | [<i class="bi bi-code-slash"></i>](/reference/master/api/well-known.md)  |
+| Méthode | Requête              | Description                                       |                                                                                 |
+|---------|----------------------|---------------------------------------------------|---------------------------------------------------------------------------------|
+| GET     | `/server`            | Récupère les informations générales du serveur.   | [<i class="bi bi-code-slash"></i>](/reference/master/api/server/get.md)         |
+| GET     | `/.well-known/nox`   | WellKnow pour Nox.                                | [<i class="bi bi-code-slash"></i>](/reference/master/api/server//well-known.md) |
 
 ### Utilisateurs
 
