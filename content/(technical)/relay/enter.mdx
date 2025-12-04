@@ -1,0 +1,241 @@
+---
+title: Enter
+description: Rejoindre une instance de jeu avec validation des permissions et configuration du joueur.
+---
+
+Le message **Enter** permet aux clients de rejoindre une instance de jeu spécifique. 
+
+Il gère les permissions, les mots de passe, les listes blanches/noires et configure le profil du joueur dans l'instance.
+
+## Priorité
+**High** - Ce message a une priorité élevée pour permettre un accès rapide aux instances.
+
+<Callout type="warning">
+
+Le message Enter **requiert** que le client soit authentifié. 
+Les requêtes envoyées avant l'authentification seront rejetées.
+
+</Callout>
+
+---
+
+## Requête Client → Serveur
+
+### Format du Payload
+```
+[instance_id: byte]
+[flags: byte]
+(UsePseudonyme ? [pseudonyme: string])
+(UsePassword ? [password: string])
+```
+
+### Structure Détaillée
+
+| Type | Nom | Description |
+|------|-----|-------------|
+| byte | InstanceID | ID de l'instance à rejoindre |
+| byte | Flags | Options d'entrée dans l'instance |
+| string | Pseudonyme | Nom d'affichage personnalisé (conditionnel) |
+| string | Password | Mot de passe de l'instance (conditionnel) |
+
+### Enter Flags
+
+| Valeur | Nom | Description |
+|--------|-----|-------------|
+| 0x00 | None | Entrée standard |
+| 0x01 | AsBot | Rejoindre en tant que bot |
+| 0x02 | UsePseudonyme | Utiliser un pseudonyme personnalisé |
+| 0x04 | UsePassword | Fournir un mot de passe |
+| 0x08 | HideInList | Se cacher dans les listes de joueurs |
+
+### Exemple de Payload
+```
+[0x05]                          // InstanceID = 5
+[0x00]                          // Flags = None
+```
+
+### Entrée avec Pseudonyme et Mot de Passe
+```
+[0x03]                          // InstanceID = 3
+[0x06]                          // Flags = UsePseudonyme | UsePassword
+[0x0A, "PlayerName"]            // Pseudonyme = "PlayerName" (10 chars)
+[0x08, "secret123"]             // Password = "secret123" (8 chars)
+```
+
+### Entrée en tant que Bot
+```
+[0x01]                          // InstanceID = 1
+[0x09]                          // Flags = AsBot | HideInList
+```
+
+---
+
+## Réponse Serveur → Client
+
+### Format du Payload
+```
+[instance_id: byte]
+[result: byte]
+(Success ? (
+    [player_flags: uint]
+    [player_id: ushort]
+    [user_id: uint]
+    [server_address: string]
+    [display_name: string]
+    [created_at: DateTime]
+    [tps: byte]
+    [threshold: byte]
+))
+(Blacklisted ? [expires_at: DateTime])
+(Error in result ? [reason?: string])
+```
+
+### Structure Détaillée
+
+| Type | Nom | Description |
+|------|-----|-------------|
+| byte | InstanceID | ID de l'instance concernée |
+| byte | Result | Code de résultat de l'entrée |
+| uint | PlayerFlags | Flags du joueur dans l'instance |
+| ushort | PlayerID | ID unique du joueur dans l'instance |
+| uint | UserID | ID de l'utilisateur authentifié |
+| string | ServerAddress | Adresse du serveur |
+| string | DisplayName | Nom d'affichage du joueur |
+| DateTime | CreatedAt | Timestamp de création du joueur |
+| byte | TPS | Taux de rafraîchissement de l'instance |
+| byte | Threshold | Seuil de latence de l'instance |
+| string | Reason | Raison du rejet ou bannissement |
+| DateTime | ExpiresAt | Date d'expiration du bannissement |
+
+### Enter Results
+
+| Valeur | Nom | Description |
+|--------|-----|-------------|
+| 0x00 | Success | Entrée réussie dans l'instance |
+| 0x01 | NotFound | Instance introuvable |
+| 0x02 | Full | Instance pleine |
+| 0x03 | Blacklisted | Utilisateur banni de l'instance |
+| 0x04 | NotWhitelisted | Utilisateur non autorisé |
+| 0x05 | InvalidGame | Jeu incompatible |
+| 0x06 | IncorrectPassword | Mot de passe incorrect |
+| 0x07 | Unknown | Erreur inconnue |
+| 0x08 | Refused | Connexion refusée |
+| 0x09 | InvalidPseudonyme | Pseudonyme invalide |
+
+### Player Flags (Succès)
+
+| Valeur | Nom | Description |
+|--------|-----|-------------|
+| 0x001 | IsBot | Le joueur est un bot |
+| 0x002 | InstanceMaster | Joueur de référence de l'instance |
+| 0x004 | InstanceModerator | Modérateur de l'instance |
+| 0x008 | InstanceOwner | Propriétaire de l'instance |
+| 0x010 | GuildModerator | Modérateur de guilde |
+| 0x020 | MasterModerator | Modérateur maître |
+| 0x040 | WorldOwner | Propriétaire du monde |
+| 0x080 | WorldModerator | Modérateur du monde |
+| 0x100 | AuthUnverified | Authentification non vérifiée |
+| 0x200 | HideInList | Caché dans les listes |
+| 0x400 | HasCustomDisplay | Nom d'affichage personnalisé |
+
+### Exemple de Réponse - Succès
+```
+[0x05]                          // InstanceID = 5
+[0x00]                          // Result = Success
+[0x00, 0x00, 0x00, 0x00]        // PlayerFlags = None
+[0x00, 0x01]                    // PlayerID = 1
+[0x00, 0x00, 0x04, 0x2A] // UserID = 1066
+[0x0A, "nox.server"]            // ServerAddress = "nox.server"
+[0x0C, "PlayerName123"]         // DisplayName = "PlayerName123"
+[0x00, 0x00, 0x01, 0x8A, 0x32, 0x1F, 0x80, 0x00] // CreatedAt (timestamp)
+[0x3C]                          // TPS = 60
+[0x32]                          // Threshold = 50
+```
+
+### Exemple de Réponse - Instance Pleine
+```
+[0x05]                          // InstanceID = 5
+[0x02]                          // Result = Full
+[0x0E, "Instance is full"]      // Reason = "Instance is full"
+```
+
+### Exemple de Réponse - Blacklisté
+```
+[0x05]                          // InstanceID = 5
+[0x03]                          // Result = Blacklisted
+[0x0F, "Disruptive behavior"]   // Reason = "Disruptive behavior"
+[0x00, 0x00, 0x01, 0x8A, 0x32, 0x1F, 0x80, 0x00] // ExpiresAt (timestamp)
+```
+
+### Exemple de Réponse - Mot de Passe Incorrect
+```
+[0x05]                          // InstanceID = 5
+[0x06]                          // Result = IncorrectPassword
+[0x12, "Incorrect password"]    // Reason = "Incorrect password"
+```
+
+---
+
+## Traitement
+
+### Côté Serveur
+1. **Validation d'instance** : Vérification que l'instance existe
+2. **Vérification de présence** : S'assurer que le client n'est pas déjà dans l'instance
+3. **Contrôle de capacité** : Vérification que l'instance n'est pas pleine
+4. **Validation des permissions** : Vérification des listes noires/blanches
+5. **Traitement des flags** : Configuration des options de connexion
+6. **Validation du mot de passe** : Si requis par l'instance
+7. **Création du joueur** : Attribution d'un ID et configuration dans l'instance
+8. **Notification** : Mise à jour du serveur maître
+
+### Côté Client
+1. **Préparation des données** : Assemblage de l'ID d'instance et des flags
+2. **Envoi conditionnel** : Ajout du pseudonyme et/ou mot de passe si nécessaire
+3. **Traitement de la réponse** : Configuration locale selon le résultat
+
+---
+
+## Comportements Spéciaux
+
+### Mode Bot
+Pour rejoindre en tant que bot, l'instance doit autoriser les bots (`InstanceFlags.AuthorizeBot`). Sinon, la connexion sera refusée.
+
+### Pseudonyme Personnalisé
+Le pseudonyme remplace temporairement le nom d'affichage du joueur dans cette instance spécifique.
+
+### Protection par Mot de Passe
+Les instances protégées nécessitent le flag `UsePassword` et un mot de passe valide.
+
+### Listes de Contrôle
+- **Liste blanche** : Si activée, seuls les utilisateurs autorisés peuvent rejoindre
+- **Liste noire** : Les utilisateurs bannis ne peuvent pas rejoindre
+
+---
+
+## Messages de Notification
+
+### Join
+Quand un joueur rejoint avec succès, tous les autres joueurs de l'instance reçoivent un message [Join](join) avec les informations du nouveau joueur.
+
+### Synchronisation
+Le nouveau joueur reçoit également les données de tous les joueurs déjà présents, incluant :
+- Informations d'avatar via `AvatarChanged`
+- Transformations via `Transform`
+
+---
+
+## Codes d'Erreur
+
+### Erreurs de Permission
+- `NotWhitelisted` : L'utilisateur n'est pas sur la liste blanche
+- `Blacklisted` : L'utilisateur est banni avec date d'expiration
+- `Refused` : Connexion refusée (ex: bot non autorisé)
+
+### Erreurs d'Instance
+- `NotFound` : L'instance n'existe pas
+- `Full` : L'instance a atteint sa capacité maximale
+- `IncorrectPassword` : Mot de passe fourni incorrect
+
+### Erreurs de Données
+- `InvalidPseudonyme` : Le pseudonyme fourni est invalide
+- `Unknown` : Erreur générique ou inconnue

@@ -1,0 +1,89 @@
+---
+title: Latency
+description: Test de latence entre client et serveur pour mesurer la qualité de connexion.
+---
+
+Le message **Latency** permet de mesurer la latence réseau entre le client et le serveur. 
+
+Il fonctionne par un système d'aller-retour où le client envoie un timestamp et reçoit en retour son timestamp original ainsi que le timestamp du serveur.
+
+## Priorité
+**High** - Ce message a une priorité élevée pour garantir des mesures précises et peut servir de keep-alive.
+
+<Callout type="warning">
+
+Le message Latency **requiert** que le client ait complété le [Handshake](handshake). 
+Les requêtes envoyées avant le handshake seront ignorées par le serveur.
+
+</Callout>
+---
+
+## Cas d'Usage
+
+### Keep-Alive
+Le client doit envoyer des messages dans un délai inférieur au timeout de connexion (15 secondes par défaut). Le message Latency est idéal pour maintenir la connexion active.
+
+### Mesure de Performance
+Permet d'évaluer la qualité de la connexion réseau et d'ajuster les comportements client selon la latence mesurée.
+
+### Synchronisation Temporelle
+Les timestamps permettent de synchroniser les horloges client/serveur pour les événements nécessitant une précision temporelle.
+
+---
+
+## Requête Client → Serveur
+
+### Format du Payload
+```
+[timestamp: DateTime]
+```
+
+### Structure Détaillée
+
+| Type | Nom | Description |
+|------|-----|-------------|
+| DateTime | Timestamp | Horodatage UTC du moment d'envoi |
+
+### Exemple de Payload
+```
+[2024-09-16T14:30:45.123Z]    // Timestamp UTC du client
+```
+
+---
+
+## Réponse Serveur → Client
+
+### Format du Payload
+```
+[client_timestamp: DateTime]
+[server_timestamp: DateTime]
+```
+
+### Structure Détaillée
+
+| Type | Nom | Description |
+|------|-----|-------------|
+| DateTime | ClientTimestamp | Timestamp original envoyé par le client |
+| DateTime | ServerTimestamp | Timestamp UTC du serveur au moment de la réponse |
+
+### Exemple de Payload
+```
+[2024-09-16T14:30:45.123Z]    // Timestamp original du client
+[2024-09-16T14:30:45.156Z]    // Timestamp du serveur
+```
+
+---
+
+## Calcul de Latence
+
+### Côté Client
+```
+RTT = (temps_réception - client_timestamp)
+Latency = RTT / 2
+Server_Offset = server_timestamp - client_timestamp - Latency
+```
+
+### Formule Détaillée
+- **RTT (Round-Trip Time)** : Temps total d'aller-retour
+- **Latency** : Latence estimée (RTT divisé par 2)
+- **Server Offset** : Décalage d'horloge entre client et serveur

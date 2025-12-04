@@ -1,0 +1,289 @@
+---
+title: ServerConfig
+description: Configuration des paramètres d'une instance par les utilisateurs privilégiés.
+---
+
+Le message **ServerConfig** permet aux utilisateurs privilégiés de modifier les paramètres de configuration d'une instance en temps réel.
+
+Il gère les performances, la capacité, la sécurité et les comportements de l'instance.
+
+## Priorité
+**Normal** - Ce message a une priorité normale car il n'affecte pas directement la connectivité.
+
+<Callout type="warning">
+
+Le message ServerConfig **requiert** des privilèges élevés. 
+Seuls les propriétaires d'instance et modérateurs maîtres peuvent modifier la configuration.
+
+</Callout>
+
+---
+
+## Requête Client → Serveur
+
+### Format du Payload
+```
+[instance_id: byte]
+[config_flags: byte]
+(Tps ? [tps: byte])
+(Threshold ? [threshold: float])
+(Capacity ? [capacity: ushort])
+(Password ? [password: string])
+(Flags ? [instance_flags: uint])
+```
+
+### Structure Détaillée
+
+| Type | Nom | Description |
+|------|-----|-------------|
+| byte | InstanceID | ID de l'instance à configurer |
+| byte | ConfigFlags | Flags indiquant quels paramètres modifier |
+| byte | TPS | Nouveau taux de rafraîchissement (conditionnel) |
+| float | Threshold | Nouveau seuil de latence (conditionnel) |
+| ushort | Capacity | Nouvelle capacité maximale (conditionnel) |
+| string | Password | Nouveau mot de passe (conditionnel) |
+| uint | InstanceFlags | Nouveaux flags d'instance (conditionnel) |
+
+### Server Config Flags
+
+| Valeur | Nom | Description |
+|--------|-----|-------------|
+| 0x00 | None | Demande de configuration actuelle |
+| 0x01 | Tps | Modifier le taux de rafraîchissement |
+| 0x02 | Threshold | Modifier le seuil de latence |
+| 0x04 | Capacity | Modifier la capacité maximale |
+| 0x08 | Password | Modifier le mot de passe |
+| 0x10 | Flags | Modifier les flags d'instance |
+
+### Combinaisons Courantes
+
+| Valeur | Nom | Description |
+|--------|-----|-------------|
+| 0x03 | Performance | TPS + Threshold |
+| 0x05 | Basic | TPS + Capacity |
+| 0x18 | Security | Password + Flags |
+| 0x1F | All | Tous les paramètres |
+
+### Instance Flags
+
+| Valeur | Nom | Description |
+|--------|-----|-------------|
+| 0x01 | IsPublic | Instance visible publiquement |
+| 0x02 | UsePassword | Protection par mot de passe requise |
+| 0x04 | UseWhitelist | Seuls les utilisateurs autorisés peuvent rejoindre |
+| 0x08 | AuthorizeBot | Autorise les connexions de bots |
+| 0x10 | AllowOverload | Permet de dépasser la capacité maximale |
+
+### Exemple de Requête - Consultation
+```
+[0x05]                          // InstanceID = 5
+[0x00]                          // ConfigFlags = None (demande info)
+```
+
+### Exemple de Requête - Modifier TPS
+```
+[0x05]                          // InstanceID = 5
+[0x01]                          // ConfigFlags = Tps
+[0x3C]                          // TPS = 60
+```
+
+### Exemple de Requête - Modifier Performance
+```
+[0x03]                          // InstanceID = 3
+[0x03]                          // ConfigFlags = Performance (Tps | Threshold)
+[0x1E]                          // TPS = 30
+[0x42, 0x48, 0x00, 0x00]        // Threshold = 0.001f
+```
+
+### Exemple de Requête - Sécurité Complète
+```
+[0x01]                          // InstanceID = 1
+[0x18]                          // ConfigFlags = Security (Password | Flags)
+[0x0A, "secret123"]             // Password = "secret123"
+[0x00, 0x00, 0x00, 0x07]        // InstanceFlags = IsPublic | UsePassword | UseWhitelist
+```
+
+---
+
+## Réponse Serveur → Client
+
+### Format du Payload
+```
+[instance_id: byte]
+[result: byte]
+(result in [Change, Success] ? (
+    [config_flags: byte]
+    (Tps in config_flags ? [tps: byte])
+    (Threshold in config_flags ? [threshold: float])
+    (Capacity in config_flags ? [capacity: ushort])
+    (Password in config_flags ? [has_password: byte])
+    (Flags in config_flags ? [instance_flags: uint])
+))
+(Failure == result ? [reason?: string])
+```
+
+### Structure Détaillée
+
+| Type | Nom | Description |
+|------|-----|-------------|
+| byte | InstanceID | ID de l'instance concernée |
+| byte | Result | Code de résultat de l'opération |
+| byte | ConfigFlags | Flags des paramètres inclus dans la réponse |
+| byte | TPS | Taux de rafraîchissement actuel/personnalisé |
+| float | Threshold | Seuil de latence actuel/personnalisé |
+| ushort | Capacity | Capacité maximale de l'instance |
+| byte | HasPassword | Indique si un mot de passe est configuré (1/0) |
+| uint | InstanceFlags | Flags d'instance actuels |
+| string | Reason | Raison de l'échec (si applicable) |
+
+### Server Config Results
+
+| Valeur | Nom | Description |
+|--------|-----|-------------|
+| 0x00 | Success | Configuration mise à jour avec succès |
+| 0x01 | Failure | Échec de la mise à jour |
+| 0x02 | Change | Notification de changement de configuration |
+
+### Exemple de Réponse - Succès
+```
+[0x05]                          // InstanceID = 5
+[0x00]                          // Result = Success
+[0x01]                          // ConfigFlags = Tps
+[0x3C]                          // TPS = 60
+```
+
+### Exemple de Réponse - Configuration Complète
+```
+[0x03]                          // InstanceID = 3
+[0x02]                          // Result = Change
+[0x1F]                          // ConfigFlags = All
+[0x3C]                          // TPS = 60
+[0x42, 0x48, 0x00, 0x00]        // Threshold = 0.0001f
+[0x00, 0x20]                    // Capacity = 32
+[0x01]                          // HasPassword = true
+[0x00, 0x00, 0x00, 0x03]        // InstanceFlags = IsPublic | UsePassword
+```
+
+### Exemple de Réponse - Échec
+```
+[0x05]                          // InstanceID = 5
+[0x01]                          // Result = Failure
+[0x11, "Permission denied"]     // Reason = "Permission denied"
+```
+
+---
+
+## Traitement
+
+### Côté Serveur
+1. **Validation d'instance** : Vérification que l'instance existe
+2. **Validation de présence** : S'assurer que le client est dans l'instance
+3. **Contrôle des privilèges** : Vérification des droits `HasHighPrivilege`
+4. **Traitement des flags** : Application des modifications selon les flags
+5. **Validation des données** : Vérification de la cohérence des paramètres
+6. **Diffusion** : Envoi des notifications aux autres joueurs
+7. **Réponse** : Confirmation au client initiateur
+
+### Côté Client
+1. **Préparation des données** : Assemblage des paramètres à modifier
+2. **Envoi conditionnel** : Inclusion uniquement des données modifiées
+3. **Traitement de la réponse** : Mise à jour de l'interface selon le résultat
+4. **Gestion des notifications** : Réception des changements d'autres joueurs
+
+---
+
+## Comportements Spéciaux
+
+### Consultation de Configuration
+Si `ConfigFlags = None`, le serveur retourne la configuration actuelle de l'instance avec le flag `All`.
+
+### Paramètres Personnalisés
+Les joueurs peuvent avoir des paramètres personnalisés (TPS/Threshold) qui prennent priorité sur ceux de l'instance.
+
+### Diffusion Automatique
+Toute modification est automatiquement diffusée à tous les joueurs de l'instance via le type `Change`.
+
+### Protection par Mot de Passe
+Le mot de passe n'est jamais retourné dans les réponses, seulement un indicateur `HasPassword`.
+
+---
+
+## Validation des Permissions
+
+### Privilèges Requis
+Seuls les joueurs avec `HasHighPrivilege` peuvent modifier la configuration :
+- `InstanceOwner` : Propriétaire de l'instance
+- `MasterModerator` : Modérateur maître
+
+### Rejet Automatique
+Les tentatives de modification sans privilèges appropriés retournent `Failure` avec "Permission denied".
+
+---
+
+## Notifications Automatiques
+
+### Change Notifications
+Quand un paramètre est modifié, tous les autres joueurs de l'instance reçoivent un message `ServerConfig` avec :
+- `Result = Change`
+- `ConfigFlags` indiquant les paramètres modifiés
+- Nouvelles valeurs des paramètres
+
+### Exemple de Notification
+Si un joueur modifie le TPS, tous les autres reçoivent :
+```
+[0x05]                          // InstanceID = 5
+[0x02]                          // Result = Change
+[0x01]                          // ConfigFlags = Tps
+[0x3C]                          // TPS = 60
+```
+
+---
+
+## Intégration avec d'Autres Messages
+
+### Relation avec Enter
+La réponse [Enter](enter) inclut les paramètres TPS et Threshold actuels de l'instance.
+
+### Relation avec Instance Flags
+Les modifications de flags affectent directement le comportement d'[Enter](enter) :
+- `UsePassword` : Activation/désactivation de la protection
+- `UseWhitelist` : Contrôle d'accès par liste blanche
+- `AuthorizeBot` : Permission pour les connexions de bots
+
+---
+
+## Gestion des Erreurs
+
+### Erreurs d'Instance
+- "Instance not found" : L'instance spécifiée n'existe pas
+- "You are not in instance" : Le client n'est pas dans l'instance
+
+### Erreurs de Permission
+- "Permission denied" : Privilèges insuffisants pour modifier la configuration
+
+### Erreurs de Données
+- "No valid configuration flags provided" : Aucun flag valide fourni dans la requête
+
+---
+
+## Exemples d'Utilisation
+
+### Interface d'Administration
+```
+"Instance TPS updated to 60"
+"Instance capacity changed to 32 players"
+"Password protection enabled"
+"Bot connections now allowed"
+```
+
+### Optimisation de Performance
+Les modérateurs peuvent ajuster en temps réel :
+- **TPS** pour les performances réseau
+- **Threshold** pour la tolérance à la latence
+- **Capacity** selon l'activité
+
+### Gestion de Sécurité
+Configuration dynamique de :
+- **Mots de passe** temporaires
+- **Listes blanches** selon les événements
+- **Protection contre les bots** malveillants

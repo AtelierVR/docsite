@@ -12,6 +12,9 @@ import { createRelativeLink } from 'fumadocs-ui/mdx';
 
 export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
   const params = await props.params;
+  if(params.slug?.length === 1 && params.slug[0] === 'error') 
+    throw new Error("Test error page");
+
   const page = source.getPage(params.slug);
   if (!page) notFound();
 

@@ -1,3 +1,17 @@
 @import 'tailwindcss';
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
+@import 'fumadocs-openapi/css/preset.css';
+@import 'fumadocs-twoslash/twoslash.css';
+
+:root {
+    --color-fd-primary: #666699;
+}
+
+.dark {
+  --color-fd-primary: #ccccff;
+}
+
+.dark #logo {
+  filter: invert(1);
+}

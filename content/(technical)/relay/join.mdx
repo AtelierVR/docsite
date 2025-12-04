@@ -1,0 +1,221 @@
+---
+title: Join
+description: Notification d'arrivée d'un nouveau joueur dans une instance envoyée aux participants existants.
+---
+
+Le message **Join** est une notification automatique envoyée aux joueurs d'une instance quand un nouveau joueur la rejoint avec succès.
+
+Il fournit toutes les informations nécessaires pour afficher et interagir avec le nouveau joueur.
+
+## Priorité
+**High** - Ce message a une priorité élevée pour maintenir la cohérence de l'état des instances.
+
+<Callout type="info">
+
+Le message Join est **automatique** et envoyé par le serveur. 
+Les clients ne peuvent pas l'envoyer directement.
+
+</Callout>
+
+---
+
+## Notification Serveur → Client
+
+### Format du Payload
+```
+[instance_id: byte]
+[player_flags: uint]
+[player_id: ushort]
+[user_id: uint]
+[server_address: string]
+[display_name: string]
+[created_at: DateTime]
+[engine: string]
+[platform: string]
+```
+
+### Structure Détaillée
+
+| Type | Nom | Description |
+|------|-----|-------------|
+| byte | InstanceID | ID de l'instance concernée |
+| uint | PlayerFlags | Flags et permissions du nouveau joueur |
+| ushort | PlayerID | ID unique du joueur dans l'instance |
+| uint | UserID | ID de l'utilisateur authentifié |
+| string | ServerAddress | Adresse du serveur du joueur |
+| string | DisplayName | Nom d'affichage du joueur |
+| DateTime | CreatedAt | Date et heure de création du joueur |
+| string | Engine | Moteur utilisé (unity, unreal, etc.) |
+| string | Platform | Plateforme (windows, android, etc.) |
+
+### Player Flags
+
+| Valeur | Nom | Description |
+|--------|-----|-------------|
+| 0x001 | IsBot | Le joueur est un bot |
+| 0x002 | InstanceMaster | Joueur de référence de l'instance |
+| 0x004 | InstanceModerator | Modérateur de l'instance |
+| 0x008 | InstanceOwner | Propriétaire de l'instance |
+| 0x010 | GuildModerator | Modérateur de guilde |
+| 0x020 | MasterModerator | Modérateur maître |
+| 0x040 | WorldOwner | Propriétaire du monde |
+| 0x080 | WorldModerator | Modérateur du monde |
+| 0x100 | AuthUnverified | Authentification non vérifiée |
+| 0x200 | HideInList | Caché dans les listes |
+| 0x400 | HasCustomDisplay | Nom d'affichage personnalisé |
+
+### Exemple de Notification - Joueur Normal
+```
+[0x05]                          // InstanceID = 5
+[0x00, 0x00, 0x00, 0x00]        // PlayerFlags = None
+[0x00, 0x04]                    // PlayerID = 4
+[0x00, 0x00, 0x04, 0x2A]        // UserID = 1066
+[0x0A, "nox.server"]            // ServerAddress = "nox.server"
+[0x0C, "PlayerName123"]         // DisplayName = "PlayerName123"
+[0x00, 0x00, 0x01, 0x8A, 0x32, 0x1F, 0x80, 0x00] // CreatedAt (timestamp)
+[0x05, "unity"]                 // Engine = "unity"
+[0x07, "windows"]               // Platform = "windows"
+```
+
+### Exemple de Notification - Bot
+```
+[0x02]                          // InstanceID = 2
+[0x00, 0x00, 0x02, 0x01]        // PlayerFlags = IsBot | HideInList
+[0x00, 0x08]                    // PlayerID = 8
+[0x00, 0x00, 0x00, 0x00]        // UserID = 0 (bot)
+[0x0A, "bot.server"]            // ServerAddress = "bot.server"
+[0x07, "BotName"]               // DisplayName = "BotName"
+[0x00, 0x00, 0x01, 0x8A, 0x32, 0x1F, 0x80, 0x00] // CreatedAt (timestamp)
+[0x04, "node"]                  // Engine = "node"
+[0x05, "linux"]                 // Platform = "linux"
+```
+
+### Exemple de Notification - Modérateur
+```
+[0x01]                          // InstanceID = 1
+[0x00, 0x00, 0x00, 0x04]        // PlayerFlags = InstanceModerator
+[0x00, 0x01]                    // PlayerID = 1
+[0x00, 0x00, 0x05, 0x39]        // UserID = 1337
+[0x0A, "nox.server"]            // ServerAddress = "nox.server"
+[0x0B, "ModeratorX"]            // DisplayName = "ModeratorX"
+[0x00, 0x00, 0x01, 0x8A, 0x32, 0x1F, 0x80, 0x00] // CreatedAt (timestamp)
+[0x06, "unreal"]                // Engine = "unreal"
+[0x07, "windows"]               // Platform = "windows"
+```
+
+---
+
+## Synchronisation Automatique
+
+### Données d'Avatar
+Immédiatement après le message `Join`, le serveur envoie automatiquement un message `AvatarChanged` si le nouveau joueur a un avatar configuré.
+
+### Données de Transform
+Le serveur envoie également tous les messages `Transform` nécessaires pour synchroniser la position et l'état du nouveau joueur.
+
+### Ordre des Messages
+1. **Join** - Informations de base du joueur
+2. **AvatarChanged** - Configuration de l'avatar (si présent)
+3. **Transform** - Position et transformations (si configurées)
+
+---
+
+## Traitement
+
+### Côté Client
+1. **Réception** : Message automatique du serveur
+2. **Validation** : Vérification de l'ID d'instance
+3. **Ajout du joueur** : Création de l'objet joueur local
+4. **Interface utilisateur** : Affichage de la notification d'arrivée
+5. **Préparation** : Attente des données d'avatar et de transform
+
+### Côté Serveur
+1. **Déclenchement** : Lors d'un [Enter](enter) réussi
+2. **Distribution** : Envoi à tous les joueurs existants
+3. **Synchronisation** : Envoi des données complémentaires
+4. **Journalisation** : Enregistrement de l'événement
+
+---
+
+## Comportements Spéciaux
+
+### Distribution Sélective
+Le message `Join` n'est envoyé qu'aux joueurs ayant le statut `PlayerStatus.Ready` dans la même instance.
+
+### Exclusion de l'Expéditeur
+Le joueur qui rejoint l'instance ne reçoit pas son propre message `Join`. Il reçoit plutôt une réponse à son message [Enter](enter).
+
+### Synchronisation Bidirectionnelle
+Quand un nouveau joueur rejoint :
+1. Les joueurs existants reçoivent son message `Join`
+2. Le nouveau joueur reçoit les messages `Join` de tous les joueurs existants
+
+---
+
+## Gestion des Privilèges
+
+### Affichage des Permissions
+Les `PlayerFlags` permettent aux clients d'afficher visuellement les privilèges :
+- Icônes de modérateur/propriétaire
+- Couleurs spéciales dans l'interface
+- Menus contextuels adaptés
+
+### Contrôle d'Accès
+Les flags influencent les interactions possibles :
+- Commandes de modération disponibles
+- Accès aux fonctionnalités privilégiées
+- Respect de la hiérarchie des permissions
+
+---
+
+## Intégration avec d'Autres Messages
+
+### Relation avec Enter
+Le message `Join` est la notification résultant d'un message [Enter](enter) traité avec succès.
+
+### Relation avec Leave
+Quand un joueur part via [Leave](leave), il est retiré des listes mais ses données restent jusqu'au nettoyage complet.
+
+### Relation avec Avatar/Transform
+Les messages `Join` sont toujours suivis par les données de synchronisation nécessaires.
+
+---
+
+## Gestion des Erreurs
+
+### Instance Invalide
+Si l'ID d'instance ne correspond à aucune instance locale, le message est ignoré silencieusement.
+
+### Joueur Déjà Présent
+Si le PlayerID existe déjà, les données sont mises à jour plutôt que dupliquées.
+
+### Données Corrompues
+En cas de données malformées, le client doit ignorer le message et maintenir son état actuel.
+
+---
+
+## Exemples d'Utilisation
+
+### Interface Utilisateur
+```
+"PlayerName123 joined the instance"
+"BotName (Bot) joined the instance"
+"ModeratorX (Moderator) joined the instance"
+"[Hidden Player] joined the instance" // Pour HideInList
+```
+
+### Initialisation de Ressources
+À la réception d'un `Join`, le client doit :
+1. Créer l'objet joueur local
+2. Préparer le système de rendu d'avatar
+3. Initialiser les données de position
+4. Mettre à jour les compteurs d'instance
+5. Configurer les interactions selon les privilèges
+6. Notifier l'interface utilisateur
+
+### Détection de Plateformes
+Les champs `Engine` et `Platform` permettent :
+- Optimisations spécifiques par plateforme
+- Adaptation de l'interface utilisateur
+- Compatibilité des fonctionnalités
+- Statistiques d'usage

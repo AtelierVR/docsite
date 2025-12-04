@@ -1,0 +1,1827 @@
+openapi: 3.1.3
+
+info:
+  title: Nox API Documentation
+  version: 0.0.1
+  contact:
+    name: Nox Team
+    url: https://github.com/AtelierVR
+  license:
+    name: AGPL-3.0
+    url: https://www.gnu.org/licenses/agpl-3.0.en.html
+  description: |-
+    The Nox API provides comprehensive functionality for managing multiplayer game experiences, including user authentication, world management, instance control, and social features.
+
+servers:
+  - url: https://nox.hactazia.fr/api
+    description: Production server
+
+tags:
+  - name: users
+    description: Users
+  - name: authentication
+    description: Authentication
+
+paths:
+  /users:
+    get:
+      operationId: searchUsers
+      tags:
+        - users
+      summary: Search users
+      description: |-
+        Search for users by query string or specific user IDs. This endpoint supports pagination and can search by:
+        - Text query matching username or display name
+        - Specific user IDs or identifiers
+
+        If authenticated, the response will include relationship information between the requesting user and each result.
+      parameters:
+        - name: query
+          in: query
+          required: false
+          description: Text query to search for in usernames and display names
+          schema:
+            type: string
+            example: "hact"
+        - name: id
+          in: query
+          required: false
+          description: Specific user ID or identifier to search for (can be array)
+          schema:
+            oneOf:
+              - type: array
+                items:
+                  type: string
+                example: []
+              - type: string
+                example: ""
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of results to return (1-100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+            example: 10
+        - name: offset
+          in: query
+          required: false
+          description: Number of results to skip for pagination
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 0
+      responses:
+        "200 - OK":
+          description: Users search completed successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/UserSearchResult"
+                    required:
+                      - data
+                  - type: object
+                    example:
+                      request: "/api/users?query=hact&limit=10"
+
+  /users/@me:
+    get:
+      operationId: fetchCurrentUser
+      tags:
+        - users
+      summary: Get current user
+      description: |-
+        Retrieve the current authenticated user's profile information. This endpoint requires authentication with a valid Bearer token.
+
+        Returns extended user information including email, verification status, 2FA status, and creation date.
+      security:
+        - BearerAuth: []
+      responses:
+        "200 - OK":
+          description: Current user profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/UserMe"
+                    required:
+                      - data
+                  - type: object
+                    example:
+                      request: "/api/users/@me"
+        "401 - NotLogged":
+          description: Unauthorized - user not logged in or invalid token
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/NotLogged"
+                  - type: object
+                    example:
+                      request: "/api/users/@me"
+        "404 - UserNotFound":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/UserNotFound"
+                  - type: object
+                    example:
+                      request: "/api/users/@me"
+    post:
+      operationId: updateCurrentUser
+      tags:
+        - users
+      summary: Update current user
+      description: |-
+        Update the profile of the currently authenticated user. Some sensitive changes (such as email or password) may require 2FA verification. If 2FA is required, the API will respond with a 428 and ErrorCodes.VerificationRequired.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserMe"
+      responses:
+        "200 - OK":
+          description: User profile updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/UserMe"
+                    required:
+                      - data
+                  - type: object
+                    example:
+                      request: "/api/users/@me"
+        "401 - NotLogged":
+          description: Unauthorized - user not logged in or invalid token
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/NotLogged"
+                  - type: object
+                    example:
+                      request: "/api/users/@me"
+        "404 - UserNotFound":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/UserNotFound"
+                  - type: object
+                    example:
+                      request: "/api/users/@me"
+        "401 - UnAuthorized":
+          description: Unauthorized - user not authorized to perform this action
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/UnAuthorized"
+                  - type: object
+                    example:
+                      request: "/api/users/@me"
+        "409 - AlreadyExists":
+          description: Conflict with other user data
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/AlreadyExists"
+                  - type: object
+                    example:
+                      request: "/api/users/@me"
+        "400 - InvalidField":
+          description: Bad request due to invalid field values
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/InvalidField"
+                  - type: object
+                    example:
+                      request: "/api/users/@me"
+        "428 - VerificationRequired":
+          description: Additional verification required for sensitive changes
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/VerificationRequired"
+                  - type: object
+                    example:
+                      request: "/api/users/@me"
+
+  /users/{search}:
+    get:
+      operationId: fetchUser
+      tags:
+        - users
+      summary: Get user
+      description: |-
+        Retrieve a user by their ID or username. The search parameter can be either:
+        - A numeric user ID (e.g., "123")
+        - A username (e.g., "hactazia")
+
+        If authenticated, the response will include relationship information between the requesting user and the target user.
+      parameters:
+        - name: search
+          in: path
+          required: true
+          description: User ID or username to search for
+          schema:
+            oneOf:
+              - type: integer
+                minimum: 1
+                description: User ID
+              - type: string
+                pattern: "^[a-z0-9_.-]{3,16}$"
+                description: Username
+            examples:
+              - "hactazia"
+              - 123
+      responses:
+        "200 - OK":
+          description: User found successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/User"
+                    required:
+                      - data
+                  - type: object
+                    example:
+                      request: "/api/users/hactazia"
+        "404 - UserNotFound":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/UserNotFound"
+                  - type: object
+                    example:
+                      request: "/api/users/hactazia"
+
+  /users/@me/thumbnail:
+    get:
+      operationId: fetchCurrentUserThumbnail
+      tags:
+        - users
+      summary: Get current user's thumbnail
+      description: |-
+        Retrieve the profile picture (thumbnail) of the currently authenticated user. Returns the image file directly if available, or a redirect to an external URL if the thumbnail is remote.
+      security:
+        - BearerAuth: []
+      responses:
+        "200 - OK":
+          description: The user's thumbnail image
+          content:
+            image/*:
+              schema:
+                $ref: "#/components/schemas/SquareImage"
+          headers:
+            "Content-Type":
+              description: The MIME type of the image
+              schema:
+                type: string
+                example: "image/png"
+            "Content-Disposition":
+              description: How the image should be displayed (inline or attachment)
+              schema:
+                type: string
+                example: "inline; filename=thumbnail-123.png"
+            "X-File-Hash":
+              description: Hash of the file for integrity checks
+              schema:
+                type: string
+                example: "30767347fcb5e38b967f622324383b88bdedf2081d7b1f1557717f178d74d171"
+            "Content-Length":
+              description: Size of the image file in bytes
+              schema:
+                type: integer
+                example: 2007912
+        "401 - NotLogged":
+          description: Unauthorized - user not logged in or invalid token
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/NotLogged"
+                  - type: object
+                    example:
+                      request: "/api/users/@me/thumbnail"
+        "404 - UserNotFound":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/UserNotFound"
+                  - type: object
+                    example:
+                      request: "/api/users/@me/thumbnail"
+        "404 - NotFound":
+          description: Thumbnail not found
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/NotFound"
+                  - type: object
+                    example:
+                      request: "/api/users/@me/thumbnail"
+        "301 - Redirect":
+          description: Redirect to external thumbnail URL
+          headers:
+            Location:
+              description: The URL of the external thumbnail
+              schema:
+                type: string
+                format: uri
+    post:
+      operationId: updateCurrentUserThumbnail
+      tags:
+        - users
+      summary: Update current user's thumbnail
+      description: |-
+        Update the profile picture (thumbnail) of the currently authenticated user. The image must be a valid PNG, JPEG, or GIF file.
+        The thumbnail must be a square image (1:1 aspect ratio).
+        If the thumbnail is updated successfully, the response will work like a GET request to the same endpoint, returning the new thumbnail image.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The new thumbnail image file
+              required:
+                - file
+      responses:
+        "200 - OK":
+          description: Thumbnail updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SquareImage"
+                    required:
+                      - data
+                  - type: object
+                    example:
+                      request: "/api/users/@me/thumbnail"
+        "401 - NotLogged":
+          description: Unauthorized - user not logged in or invalid token
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/NotLogged"
+                  - type: object
+                    example:
+                      request: "/api/users/@me/thumbnail"
+        "400 - InvalidField":
+          description: Bad request due to invalid field values
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/InvalidField"
+                  - type: object
+                    example:
+                      request: "/api/users/@me/thumbnail"
+        "401 - UnAuthorized":
+          description: Unauthorized - user not authorized to perform this action
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/UnAuthorized"
+                  - type: object
+                    example:
+                      request: "/api/users/@me/thumbnail"
+        "500 - InternalError":
+          description: Internal server error occurred while processing the request
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/InternalError"
+                  - type: object
+                    example:
+                      request: "/api/users/@me/thumbnail"
+
+  /users/{search}/thumbnail:
+    get:
+      operationId: fetchUserThumbnail
+      tags:
+        - users
+      summary: Get user thumbnail
+      description: |-
+        Retrieve the profile picture (thumbnail) of a user by their ID or username. Returns the image file directly if available, or a redirect to an external URL if the thumbnail is remote.
+      parameters:
+        - name: search
+          in: path
+          required: true
+          description: User ID or username to search for
+          schema:
+            oneOf:
+              - type: integer
+                minimum: 1
+                description: User ID
+              - type: string
+                pattern: "^[a-z0-9_.-]{3,16}$"
+                description: Username
+            examples:
+              - "hactazia"
+              - 123
+      responses:
+        "200 - OK":
+          description: The user's thumbnail image
+          content:
+            image/*:
+              schema:
+                $ref: "#/components/schemas/SquareImage"
+          headers:
+            "Content-Type":
+              description: The MIME type of the image
+              schema:
+                type: string
+                example: "image/png"
+            "Content-Disposition":
+              description: How the image should be displayed (inline or attachment)
+              schema:
+                type: string
+                example: "inline; filename=thumbnail-123.png"
+            "X-File-Hash":
+              description: Hash of the file for integrity checks
+              schema:
+                type: string
+                example: "30767347fcb5e38b967f622324383b88bdedf2081d7b1f1557717f178d74d171"
+            "Content-Length":
+              description: Size of the image file in bytes
+              schema:
+                type: integer
+                example: 2007912
+        "404 - UserNotFound":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/UserNotFound"
+                  - type: object
+                    example:
+                      request: "/api/users/hactazia/thumbnail"
+        "301 - Redirect":
+          description: Redirect to external thumbnail URL
+          headers:
+            Location:
+              description: The URL of the external thumbnail
+              schema:
+                type: string
+                format: uri
+
+  /users/@me/banner:
+    get:
+      operationId: fetchCurrentUserBanner
+      tags:
+        - users
+      summary: Get current user's banner
+      description: |-
+        Retrieve the banner image of the currently authenticated user. Returns the image file directly if available, or a redirect to an external URL if the banner is remote.
+      security:
+        - BearerAuth: []
+      responses:
+        "200 - OK":
+          description: The user's banner image
+          content:
+            image/*:
+              schema:
+                $ref: "#/components/schemas/LargeImage"
+          headers:
+            "Content-Type":
+              description: The MIME type of the image
+              schema:
+                type: string
+                example: "image/png"
+            "Content-Disposition":
+              description: How the image should be displayed (inline or attachment)
+              schema:
+                type: string
+                example: "inline; filename=banner-123.png"
+            "X-File-Hash":
+              description: Hash of the file for integrity checks
+              schema:
+                type: string
+                example: "30767347fcb5e38b967f622324383b88bdedf2081d7b1f1557717f178d74d171"
+            "Content-Length":
+              description: Size of the image file in bytes
+              schema:
+                type: integer
+                example: 2007912
+        "401 - NotLogged":
+          description: Unauthorized - user not logged in or invalid token
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/NotLogged"
+                  - type: object
+                    example:
+                      request: "/api/users/@me/banner"
+        "404 - UserNotFound":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/UserNotFound"
+                  - type: object
+                    example:
+                      request: "/api/users/@me/banner"
+        "404 - NotFound":
+          description: Banner not found
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/NotFound"
+                  - type: object
+                    example:
+                      request: "/api/users/@me/banner"
+        "301 - Redirect":
+          description: Redirect to external banner URL
+          headers:
+            Location:
+              description: The URL of the external banner
+              schema:
+                type: string
+                format: uri
+    post:
+      operationId: updateCurrentUserBanner
+      tags:
+        - users
+      summary: Update current user's banner
+      description: |-
+        Update the banner image of the currently authenticated user. The image must be a valid PNG, JPEG, or GIF file.
+        The banner must be a large image (4:3 aspect ratio).
+        If the banner is updated successfully, the response will work like a GET request to the same endpoint, returning the new banner image.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The new banner image file
+              required:
+                - file
+      responses:
+        "200 - OK":
+          description: Banner updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/LargeImage"
+                    required:
+                      - data
+                  - type: object
+                    example:
+                      request: "/api/users/@me/banner"
+        "401 - NotLogged":
+          description: Unauthorized - user not logged in or invalid token
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/NotLogged"
+                  - type: object
+                    example:
+                      request: "/api/users/@me/banner"
+        "400 - InvalidField":
+          description: Bad request due to invalid field values
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/InvalidField"
+                  - type: object
+                    example:
+                      request: "/api/users/@me/banner"
+        "401 - UnAuthorized":
+          description: Unauthorized - user not authorized to perform this action
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/UnAuthorized"
+                  - type: object
+                    example:
+                      request: "/api/users/@me/banner"
+        "500 - InternalError":
+          description: Internal server error occurred while processing the request
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/InternalError"
+                  - type: object
+                    example:
+                      request: "/api/users/@me/banner"
+
+  /users/{search}/banner:
+    get:
+      operationId: fetchUserBanner
+      tags:
+        - users
+      summary: Get user banner
+      description: |-
+        Retrieve the banner image of a user by their ID or username. Returns the image file directly if available, or a redirect to an external URL if the banner is remote.
+      parameters:
+        - name: search
+          in: path
+          required: true
+          description: User ID or username to search for
+          schema:
+            oneOf:
+              - type: integer
+                minimum: 1
+                description: User ID
+              - type: string
+                pattern: "^[a-z0-9_.-]{3,16}$"
+                description: Username
+            examples:
+              - "hactazia"
+              - 123
+      responses:
+        "200 - OK":
+          description: The user's banner image
+          content:
+            image/*:
+              schema:
+                $ref: "#/components/schemas/LargeImage"
+          headers:
+            "Content-Type":
+              description: The MIME type of the image
+              schema:
+                type: string
+                example: "image/png"
+            "Content-Disposition":
+              description: How the image should be displayed (inline or attachment)
+              schema:
+                type: string
+                example: "inline; filename=banner-123.png"
+            "X-File-Hash":
+              description: Hash of the file for integrity checks
+              schema:
+                type: string
+                example: "30767347fcb5e38b967f622324383b88bdedf2081d7b1f1557717f178d74d171"
+            "Content-Length":
+              description: Size of the image file in bytes
+              schema:
+                type: integer
+                example: 2007912
+        "404 - UserNotFound":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/UserNotFound"
+                  - type: object
+                    example:
+                      request: "/api/users/hactazia/banner"
+        "301 - Redirect":
+          description: Redirect to external banner URL
+          headers:
+            Location:
+              description: The URL of the external banner
+              schema:
+                type: string
+                format: uri
+
+  /users/@me/sessions:
+    get:
+      operationId: fetchCurrentUserSessions
+      tags:
+        - users
+      summary: Get current user's sessions
+      description: |-
+        Retrieve the list of active sessions for the currently authenticated user. This includes information about each session such as device type, IP address, and last activity time.
+      security:
+        - BearerAuth: []
+      responses:
+        "200 - OK":
+          description: Current user's sessions retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/UserSessionSearchResult"
+                    required:
+                      - data
+                  - type: object
+                    example:
+                      request: "/api/users/@me/sessions"
+
+  /auth/login:
+    post:
+      operationId: userLogin
+      tags:
+        - authentication
+      summary: User login
+      description: |-
+        Authenticate a user with their username or id and password. If successful, a session cookie will be set for the user.
+        If the user has 2FA enabled, they must provide a valid factor code.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200 - OK":
+          description: User logged in successfully
+          headers:
+            "Set-Cookie":
+              description: Session cookie for the authenticated user
+              schema:
+                type: string
+                example: "_uid=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AuthResponse"
+                    required:
+                      - data
+                  - type: object
+                    example:
+                      request: "/api/auth/login"
+        "404 - UserNotFound":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/UserNotFound"
+                  - type: object
+                    example:
+                      request: "/api/auth/login"
+        "400 - InvalidField":
+          description: Bad request due to invalid field values
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/InvalidField"
+                  - type: object
+                    example:
+                      request: "/api/auth/login"
+        "428 - VerificationRequired":
+          description: Additional verification required for sensitive changes
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/VerificationRequired"
+                  - type: object
+                    example:
+                      request: "/api/auth/login"
+
+  /relays/update:
+    post:
+      operationId: updateRelay
+      tags:
+        - relays
+      summary: Update relay
+      description: Update the relay information and instances.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IRUpdate'
+      responses:
+        '200':
+          description: Relay updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelayUpdateResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Relay not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /relays/checkbearer:
+    post:
+      operationId: checkBearer
+      tags:
+        - relays
+      summary: Check bearer token
+      description: Check the validity of a bearer token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckBearerRequest'
+      responses:
+        '200':
+          description: Bearer token checked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckBearerResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Relay not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    Response:
+      type: object
+      properties:
+        data:
+          type: object
+          description: The main response data
+        request:
+          type: string
+          description: Original request path
+          example: "/api/"
+        time:
+          type: integer
+          format: int64
+          description: Timestamp of the response in milliseconds
+          example: 1750945093437
+      required:
+        - data
+        - request
+        - time
+
+    Error:
+      type: object
+      $ref: "#/components/schemas/Response"
+      description: Error response schema
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              description: Error message describing the issue
+              example: "Invalid field: limit, must be between 1 and 100."
+            code:
+              type: integer
+              description: Error code indicating the type of error
+              example: 5
+            status:
+              type: integer
+              description: HTTP status code for the error
+              example: 400
+          required:
+            - message
+            - code
+            - status
+
+    UserNotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when a user is not found
+          properties:
+            data:
+              type: null
+              description: Always null for user not found errors
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Error message indicating user not found
+                  example: "User not found."
+                code:
+                  type: integer
+                  description: Error code for user not found
+                  example: 2
+                status:
+                  type: integer
+                  description: HTTP status code for user not found
+                  example: 404
+              required:
+                - message
+                - code
+                - status
+          required:
+            - error
+            - data
+
+    NotLogged:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when the user is not logged in
+          properties:
+            data:
+              type: null
+              description: Always null for not logged errors
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Error message indicating user is not logged in
+                  example: "You are not logged in."
+                code:
+                  type: integer
+                  description: Error code for not logged in
+                  example: 7
+                status:
+                  type: integer
+                  description: HTTP status code for not logged in
+                  example: 401
+              required:
+                - message
+                - code
+                - status
+          required:
+            - error
+            - data
+
+    UnAuthorized:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when the user is not authorized to perform an action
+          properties:
+            data:
+              type: null
+              description: Always null for unauthorized errors
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Error message indicating unauthorized access
+                  example: "You are not authorized to {0}."
+                code:
+                  type: integer
+                  description: Error code for unauthorized access
+                  example: 8
+                status:
+                  type: integer
+                  description: HTTP status code for unauthorized access
+                  example: 401
+              required:
+                - message
+                - code
+                - status
+          required:
+            - error
+            - data
+
+    AlreadyExists:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when a resource already exists
+          properties:
+            data:
+              type: null
+              description: Always null for already exists errors
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Error message indicating the resource already exists
+                  example: "{0} already exists with {1}."
+                code:
+                  type: integer
+                  description: Error code for already exists
+                  example: 6
+                status:
+                  type: integer
+                  description: HTTP status code for already exists
+                  example: 409
+              required:
+                - message
+                - code
+                - status
+          required:
+            - error
+            - data
+
+    InvalidField:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when a field is invalid
+          properties:
+            data:
+              type: null
+              description: Always null for invalid field errors
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Error message indicating the invalid field
+                  example: "Invalid field: {0}, {1}."
+                code:
+                  type: integer
+                  description: Error code for invalid field
+                  example: 5
+                status:
+                  type: integer
+                  description: HTTP status code for invalid field
+                  example: 400
+              required:
+                - message
+                - code
+                - status
+          required:
+            - error
+            - data
+
+    VerificationRequired:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Response when additional verification is required for sensitive changes
+          properties:
+            data:
+              type: object
+              description: Verification methods available for the user
+              properties:
+                methods:
+                  type: array
+                  description: List of verification methods available for the user
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                        enum: [totp, email]
+                        description: Type of verification method
+                      name:
+                        type: string
+                        description: Name of the verification method
+                      description:
+                        type: string
+                        description: Description of the verification method
+                      enabled:
+                        type: boolean
+                        description: Whether this method is currently enabled for the user
+                      can_send:
+                        type: boolean
+                        description: Whether a verification code can be sent using this method
+                    required:
+                      - type
+                      - name
+                      - description
+                      - enabled
+                      - can_send
+                  example:
+                    - type: "totp"
+                      name: "Authenticator App"
+                      description: "Use an authenticator app to generate a verification code"
+                      enabled: true
+                      can_send: false
+                    - type: "email"
+                      name: "Email Verification"
+                      description: "Receive a verification code via email"
+                      enabled: false
+                      can_send: true
+              required:
+                - methods
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Error message indicating verification is required
+                  example: "Additional verification required."
+                code:
+                  type: integer
+                  description: Error code for verification required
+                  example: 20
+                status:
+                  type: integer
+                  description: HTTP status code for verification required
+                  example: 428
+          required:
+            - error
+            - data
+
+    NotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when a resource is not found
+          properties:
+            data:
+              type: null
+              description: Always null for not found errors
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Error message indicating the resource was not found
+                  example: "Resource not found."
+                code:
+                  type: integer
+                  description: Error code for not found
+                  example: 3
+                status:
+                  type: integer
+                  description: HTTP status code for not found
+                  example: 404
+              required:
+                - message
+                - code
+                - status
+          required:
+            - error
+            - data
+
+    InternalError:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response for internal server errors
+          properties:
+            data:
+              type: null
+              description: Always null for internal errors
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Error message indicating an internal server error occurred
+                  example: "An internal error occurred while trying to {0}."
+                code:
+                  type: integer
+                  description: Error code for internal error
+                  example: 9
+                status:
+                  type: integer
+                  description: HTTP status code for internal error
+                  example: 500
+              required:
+                - message
+                - code
+                - status
+          required:
+            - error
+            - data
+
+    SquareImage:
+      type: string
+      description: Square image file (1:1 aspect ratio, e.g., profile picture) in PNG, JPEG, or GIF format
+      format: binary
+      required: true
+
+    LargeImage:
+      type: string
+      description: Large image file (4:3 aspect ratio, e.g., banner image) in PNG, JPEG, or GIF format
+      format: image
+
+    UpdateUserMe:
+      type: object
+      description: Request body for updating the current user
+      properties:
+        username:
+          type: [string, "null"]
+          pattern: "^[a-z0-9_.-]{3,16}$"
+          description: New username
+        display:
+          type: [string, "null"]
+          pattern: "^.{3,32}$"
+          description: New display name
+        email:
+          type: [string, "null"]
+          format: email
+          maxLength: 320
+          description: New email address
+        password:
+          type: [string, "null"]
+          minLength: 6
+          maxLength: 128
+          description: New password
+        current_password:
+          type: [string, "null"]
+          minLength: 6
+          maxLength: 128
+          description: Current password (required to change password)
+        twofa_token:
+          type: [string, "null"]
+          pattern: "^[0-9]{6}$"
+          description: 6-digit 2FA token required for sensitive operations
+        bio:
+          type: [string, "null"]
+          maxLength: 512
+          description: User biography
+        thumbnail:
+          type: [string, "null"]
+          format: uri
+          maxLength: 2048
+          description: URL to user's profile picture
+        banner:
+          type: [string, "null"]
+          format: uri
+          maxLength: 2048
+          description: URL to user's banner image
+        links:
+          type: [array, "null"]
+          items:
+            type: string
+            format: uri
+            maxLength: 2048
+          maxItems: 10
+          description: User's social links
+        home:
+          type: [string, "null"]
+          minLength: 1
+          maxLength: 100
+          description: User's home world reference
+        tags:
+          type: [array, "null"]
+          items:
+            type: string
+            pattern: "^usr:[a-z0-9_]+$"
+            minLength: 5
+            maxLength: 64
+          minItems: 0
+          maxItems: 50
+          description: User tags only ("usr:country_fr")
+      additionalProperties: false
+      example:
+        username: null
+        display: null
+        email: null
+        password: null
+        current_password: null
+        twofa_token: null
+        bio: null
+        thumbnail: null
+        banner: null
+        links: null
+        home: null
+        tags: null
+
+    SearchResult:
+      type: object
+      properties:
+        total:
+          type: integer
+          minimum: 0
+          description: Total number of items matching the search criteria
+        query:
+          type: string
+          nullable: true
+          description: The search query used (if any)
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Maximum number of results returned
+        offset:
+          type: integer
+          minimum: 0
+          description: Number of results skipped
+      required:
+        - total
+        - query
+        - limit
+        - offset
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: Unique user identifier
+          example: 123
+        username:
+          type: string
+          pattern: "^[a-z0-9_.-]{3,16}$"
+          description: Username (unique identifier)
+          example: "hactazia"
+        display:
+          type: string
+          pattern: "^.{3,32}$"
+          description: Display name
+          example: "Hactazia"
+        server:
+          type: string
+          minLength: 1
+          maxLength: 253
+          description: Server address where the user is registered
+          example: "hactazia.fr"
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 50
+          minItems: 0
+          maxItems: 50
+          description: User tags and permissions
+          example:
+            [
+              "sys:admin",
+              "dft:can_file_upload",
+              "dft:can_self_edit",
+              "dft:can_world_create",
+              "sys:unverified",
+            ]
+        bio:
+          type: string
+          nullable: true
+          minLength: 0
+          maxLength: 500
+          description: User biography
+          example: "Game developer and VR enthusiast"
+        thumbnail:
+          type: string
+          nullable: true
+          format: uri
+          maxLength: 2048
+          description: URL to user's profile picture
+          example: "https://avr.hactazia.fr/api/users/123/thumbnail"
+        banner:
+          type: string
+          nullable: true
+          format: uri
+          maxLength: 2048
+          description: URL to user's banner image
+          example: "https://avr.hactazia.fr/api/users/123/banner"
+        links:
+          type: array
+          items:
+            type: string
+            format: uri
+            maxLength: 2048
+          minItems: 0
+          maxItems: 10
+          description: User's social links (validated URLs only)
+          example: ["https://avr.hactazia.fr/"]
+        rank:
+          type: integer
+          minimum: 0
+          maximum: 1
+          description: User rank given by admins (0 = unverified, 1 = verified)
+          example: 0
+        relations:
+          allOf:
+            - $ref: "#/components/schemas/UserRelations"
+            - example:
+                in: null
+                out: null
+      required:
+        - id
+        - username
+        - display
+        - server
+        - tags
+        - bio
+        - thumbnail
+        - banner
+        - links
+        - rank
+        - relations
+
+    UserSearchResult:
+      type: object
+      $ref: "#/components/schemas/SearchResult"
+      example:
+        total: 1
+        query: "hact"
+        limit: 10
+        offset: 0
+        ids: []
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+          description: Array of user identifiers that were searched for
+          example: []
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+          description: Array of users matching the search criteria
+      required:
+        - ids
+        - users
+
+    UserMe:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          properties:
+            email:
+              type: string
+              nullable: true
+              format: email
+              maxLength: 320
+              description: User's email address
+              example: "hactazia@example.com"
+            email_verified:
+              type: boolean
+              description: Whether the user's email has been verified
+              example: false
+            created_at:
+              type: integer
+              format: int64
+              description: User creation timestamp
+              example: 1750936113726
+            home:
+              type: string
+              nullable: true
+              minLength: 1
+              maxLength: 100
+              description: User's home world reference
+              example: "world123@hactazia.fr"
+            twofa_enabled:
+              type: boolean
+              description: Whether two-factor authentication is enabled
+              example: false
+            relations:
+              type: null
+              description: Always null for the current user endpoint
+          required:
+            - email
+            - email_verified
+            - created_at
+            - home
+            - twofa_enabled
+            - relations
+
+    UserRelations:
+      type: object
+      nullable: true
+      description: Relationship information between users
+      properties:
+        out:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 50
+          description: Outgoing relationship type from requesting user to this user
+          example: "following"
+        in:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 50
+          description: Incoming relationship type from this user to requesting user
+          example: "follower"
+
+    UserSession:
+      type: object
+      description: User session information
+      properties:
+        expires:
+          type: integer
+          format: int64
+          description: Session expiration timestamp in milliseconds since epoch
+          example: 1750945093437
+        created_at:
+          type: integer
+          format: int64
+          description: Session creation timestamp in milliseconds since epoch
+          example: 1750936113726
+
+    UserSessionSearchResult:
+      type: object
+      $ref: "#/components/schemas/SearchResult"
+      example:
+        total: 1
+        limit: 10
+        offset: 0
+        sessions: []
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserSession"
+          description: Array of user sessions matching the search criteria
+      required:
+        - sessions
+
+    LoginRequest:
+      type: object
+      required:
+        - identifier
+        - password
+      properties:
+        identifier:
+          oneOf:
+            - type: string
+            - type: integer
+          description: Username or user ID
+          example: "hactazia"
+        password:
+          type: string
+          minLength: 6
+          maxLength: 128
+          description: User password
+          example: "hunter2"
+        twofa_token:
+          type: string
+          pattern: "^[0-9]{6}$"
+          description: 6-digit 2FA token if required
+          example: "123456"
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Session token for authenticated requests
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+        expires:
+          type: integer
+          format: int64
+          description: Session expiration timestamp in milliseconds
+          example: 1750945093437
+        created_at:
+          type: integer
+          format: int64
+          description: Session creation timestamp in milliseconds
+          example: 1750936113726
+        user:
+          $ref: "#/components/schemas/UserMe"
+      required:
+        - token
+        - expires
+        - created_at
+        - user
+
+    IRUpdate:
+      type: object
+      properties:
+        max_instances:
+          type: integer
+        port:
+          type: integer
+        use_address:
+          type: string
+        clients:
+          type: array
+          items:
+            $ref: '#/components/schemas/IRUpdateClient'
+        instances:
+          type: array
+          items:
+            $ref: '#/components/schemas/IRUpdateInstance'
+      required:
+        - max_instances
+        - port
+        - use_address
+        - clients
+        - instances
+
+    IRUpdateClient:
+      type: object
+      properties:
+        id:
+          type: integer
+        remote:
+          type: string
+        status:
+          type: string
+        platform:
+          type: string
+        engine:
+          type: string
+        last_seen:
+          type: integer
+        user:
+          type: object
+          properties:
+            id:
+              type: integer
+            address:
+              type: string
+      required:
+        - id
+        - remote
+        - status
+        - platform
+        - engine
+        - last_seen
+
+    IRUpdateInstance:
+      type: object
+      properties:
+        internal_id:
+          type: integer
+        master_id:
+          type: integer
+        flags:
+          type: integer
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/IRUpdatePlayer'
+        max_players:
+          type: integer
+      required:
+        - internal_id
+        - master_id
+        - flags
+        - players
+        - max_players
+
+    IRUpdatePlayer:
+      type: object
+      properties:
+        id:
+          type: integer
+        client_id:
+          type: integer
+        display:
+          type: string
+        flags:
+          type: integer
+        status:
+          type: integer
+        created_at:
+          type: integer
+      required:
+        - id
+        - client_id
+        - display
+        - flags
+        - status
+        - created_at
+
+    CheckBearerRequest:
+      type: object
+      properties:
+        access_token:
+          type: string
+        user_id:
+          type: integer
+        token_type:
+          type: string
+      required:
+        - access_token
+        - user_id
+        - token_type
+
+    CheckBearerResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        user:
+          type: object
+          properties:
+            id:
+              type: integer
+            display:
+              type: string
+            server:
+              type: string
+        token_type:
+          type: string
+        access_token:
+          type: string
+      required:
+        - valid
+
+    RelayUpdateResponse:
+      type: object
+      properties:
+        relay:
+          type: integer
+        server:
+          type: string
+        next_update:
+          type: integer
+        instances:
+          type: array
+          items:
+            type: object
+            properties:
+              master_id:
+                type: integer
+              capacity:
+                type: integer
+              password:
+                type: string
+              flags:
+                type: integer
+              world_ref:
+                type: string
+      required:
+        - relay
+        - server
+        - next_update
+        - instances
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token authentication for user sessions
+
+    IntegrityAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Integrity token authentication (format "Integrity <token>")

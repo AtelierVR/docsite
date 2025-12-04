@@ -1,0 +1,124 @@
+---
+title: Reliable
+description: Gestion des messages fiables avec garantie de livraison et traitement séquentiel.
+---
+
+Le message **Reliable** permet d'envoyer plusieurs messages avec garantie de livraison dans un seul paquet. 
+
+Il groupe plusieurs requêtes dans un container unique, optimisant les performances réseau tout en maintenant la fiabilité.
+
+## Priorité
+**Critical** - Ce message a la priorité la plus élevée pour garantir la livraison de tous les messages contenus.
+
+---
+
+## Format du Payload
+
+### Structure Globale
+```
+[count: byte]
+[message_1_length: ushort][message_1_data: bytes]
+[message_2_length: ushort][message_2_data: bytes]
+...
+[message_n_length: ushort][message_n_data: bytes]
+```
+
+### Structure Détaillée
+
+| Type | Nom | Description |
+|------|-----|-------------|
+| byte | Count | Nombre de messages contenus (1-255) |
+| ushort | MessageLength | Taille en octets du message suivant |
+| byte[] | MessageData | Données du message à traiter |
+
+---
+
+## Exemple de Payload
+
+### Payload avec 2 messages
+```
+[0x02]                    // Count = 2 messages
+[0x00, 0x08]             // Message 1 Length = 8 bytes
+[0x04, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]  // Message 1 Data
+[0x00, 0x04]             // Message 2 Length = 4 bytes  
+[0x01, 0xAA, 0xBB, 0xCC] // Message 2 Data
+```
+
+### Payload avec un seul message
+```
+[0x01]                    // Count = 1 message
+[0x00, 0x0C]             // Message Length = 12 bytes
+[0x04, "Hello World"]    // Message Data (Latency request example)
+```
+
+---
+
+## Traitement
+
+### Côté Serveur
+1. **Lecture du compteur** : Extraction du nombre de messages
+2. **Itération séquentielle** : Traitement de chaque message dans l'ordre
+3. **Lecture de taille** : Extraction de la longueur de chaque message
+4. **Délégation** : Redirection vers `Request.OnBuffer()` pour traitement spécialisé
+
+### Flux de Traitement
+```csharp
+// Pseudo-code du traitement
+var count = payload.ReadByte();
+for (int i = 0; i < count; i++) {
+    var length = payload.ReadUShort();
+    var messageData = payload.ReadBytes(length);
+    Request.OnBuffer(clientRemote, messageData);
+}
+```
+
+---
+
+## Avantages
+
+### Optimisation Réseau
+- **Réduction des paquets** : Groupage de plusieurs messages
+- **Efficacité** : Moins d'overhead réseau per message
+- **Latence** : Traitement groupé plus efficace
+
+### Garanties
+- **Fiabilité** : Priorité critique assure la livraison
+- **Ordre** : Traitement séquentiel des messages contenus
+- **Atomicité** : Tous les messages ou aucun
+
+---
+
+## Cas d'Usage
+
+### Batch d'Actions
+Envoi de plusieurs actions utilisateur en une seule fois :
+```
+Reliable [
+  Transform(x, y, z),
+  Latency(now),
+  ChatMessage("Hello")
+]
+```
+
+### Synchronisation d'État
+Mise à jour de plusieurs propriétés simultanément :
+```
+Reliable [
+  Join(1),
+  Transform(x, y, z),
+  Parameter("health", 100)
+]
+```
+
+---
+
+## Limites
+
+### Taille Maximum
+- **Limite du paquet** : Respecter la MaxPacketSize du handshake
+- **Nombre de messages** : Maximum 255 messages par paquet Reliable
+- **Taille individuelle** : Chaque message limité à 65535 octets
+
+### Performance
+- **Traitement séquentiel** : Messages traités un par un
+- **Priorité critique** : Peut retarder les messages de priorité inférieure

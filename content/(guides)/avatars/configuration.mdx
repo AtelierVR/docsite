@@ -1,0 +1,30 @@
+---
+title: Configuration
+description: Guide to configuring avatars.
+---
+
+## Add Avatar Descriptor
+
+The avatar needs to be configured with specific components to work correctly in Nox.
+1. Select the root of your avatar in the `Hierarchy` window.
+2. In the `Inspector` window, you can seen the Animator component.  
+If the avatar is correctly rigged, the CCK Avatar should be visible with `Add Avatar Descriptor` button.
+![](/img/avatar-animator.png)
+
+3. Click on `Add Avatar Descriptor` button to add the CCK Avatar component.
+
+The avatars are based on **Modules**.  
+All features are provided by modules that can be added or removed as needed.  
+See the [Modules](/docs/avatars/modules) page for detailed information about available modules.
+
+## Animator
+
+For the most compatibility, the Controller in Animator component must be empty.  
+The animation will be handled by the Playable Avatar Module.
+
+## Importants Modules
+
+The first modules to add are:
+- [Camera Avatar Module](/avatars/modules#camera-avatar-module): to define the position of the camera relative to the avatar.
+- [Playable Avatar Module](/avatars/modules#playable-avatar-module): to define the Unity Animator Controllers for the avatar.
+- [Avatar Parameter Module](/avatars/modules#avatar-parameter-module): to define custom parameters for the avatar.

@@ -1,0 +1,86 @@
+---
+title: Modules
+description: Avatar modules and their configuration.
+---
+
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+
+The avatars are based on **Modules**. All features are provided by modules that can be added or removed as needed.
+
+To add a module: you just click on `Add Component` button at the bottom of the `Inspector` window and search `AvatarModule`.
+![](/img/avatar-add-module.png)
+
+## CCK Available Modules
+
+<Accordions>
+<Accordion title="Camera Avatar Module">
+
+The one of most important module is the `Camera Avatar Module`, 
+that allows to define the position of the camera relative to the avatar.
+This permit to ajust the view point.
+
+The first step is to set the `Head Transform`, you can use the `Detect` button to automatically assign it to the head bone of the avatar.
+![](/img/avatar-camera/component.png)
+
+In the second time, you can ajust the `Camera Offset` with `Edit` button.  
+If you finish, you can click on `Done` button to exit the edit mode.
+![](/img/avatar-camera/edit.png)
+
+<Callout type="info">
+    In my example, I use the Isometric view, and the Orientation Axis to ajust the position of the camera.  
+    Full guide on the [Unity Documentation](https://docs.unity3d.com/6000.2/Documentation/Manual/SceneViewNavigation.html).
+</Callout>
+
+</Accordion>
+
+<Accordion title="Avatar Parameter Module">
+
+The `Avatar Parameter Module` allow to define custom parameters for the avatar,
+that can be used for animations or other features.
+![](/img/avatar-parameter/component.png)
+
+You can assign a `Avatar Parameters Asset` to define the parameters.
+![](/img/avatar-parameter/create.png)
+
+For modularity, you have a multitude of types for the parameters.  
+The list of defaults parameters is [here](/docs/avatars/parameters).
+
+<Callout type="warn">
+    Some types are not compatible with [Unity Animator Controllers](https://docs.unity3d.com/6000.2/Documentation/Manual/class-AnimatorController.html).  
+    For minimum compatibility, types will be converted to match.
+</Callout>
+
+![](/img/avatar-parameter/types.png)
+
+</Accordion>
+
+<Accordion title="Playable Avatar Module">
+
+The `Playable Avatar Module` allow to define [Unity Animator Controllers](https://docs.unity3d.com/6000.2/Documentation/Manual/class-AnimatorController.html).
+The most important controller is the `Locomotion` (the CCK as a default one with the same name), that handle the movement of the avatar.
+![](/img/avatar-playable/component.png)
+
+</Accordion>
+
+<Accordion title="Voice Avatar Module">
+
+The `Voice Avatar Module` allow to define voice settings for the avatar.  
+(Under development)
+
+</Accordion>
+
+<Accordion title="Rigging Avatar Module">
+
+The `Rigging Avatar Module` allow to define IK for the avatar.  
+For the moment, is only compatible with Desktop mode with [Unity RigBuilder](https://docs.unity3d.com/Packages/com.unity.animation.rigging@1.4/api/UnityEngine.Animations.Rigging.RigBuilder.html)  
+(Under development)
+
+</Accordion>
+
+<Accordion title="Proxies Avatar Module">
+
+The `Proxies Avatar Module` allow change Animations by other Animations at runtime.  
+(Under development)
+
+</Accordion>
+</Accordions>
