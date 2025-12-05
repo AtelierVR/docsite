@@ -18,9 +18,29 @@ servers:
 
 tags:
   - name: users
-    description: Users
+    description: Users management and profile operations
   - name: authentication
-    description: Authentication
+    description: Authentication (login, register, logout)
+  - name: sessions
+    description: Session management
+  - name: integrity
+    description: Integrity token verification for server-to-server communication
+  - name: avatars
+    description: Avatar management
+  - name: worlds
+    description: World management
+  - name: instances
+    description: Instance management
+  - name: relations
+    description: User relations (follow/unfollow)
+  - name: notifications
+    description: Notifications management
+  - name: presence
+    description: User presence and location
+  - name: server
+    description: Server information
+  - name: relays
+    description: Relay server management (admin only)
 
 paths:
   /users:
@@ -752,12 +772,26 @@ paths:
     get:
       operationId: fetchCurrentUserSessions
       tags:
-        - users
+        - sessions
       summary: Get current user's sessions
       description: |-
         Retrieve the list of active sessions for the currently authenticated user. This includes information about each session such as device type, IP address, and last activity time.
       security:
         - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 10
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
       responses:
         "200 - OK":
           description: Current user's sessions retrieved successfully
@@ -769,12 +803,167 @@ paths:
                   - type: object
                     properties:
                       data:
-                        $ref: "#/components/schemas/UserSessionSearchResult"
+                        $ref: "#/components/schemas/SessionListResponse"
                     required:
                       - data
                   - type: object
                     example:
                       request: "/api/users/@me/sessions"
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+    delete:
+      operationId: deleteAllSessions
+      tags:
+        - sessions
+      summary: Delete all sessions
+      description: |-
+        Delete all sessions for the current user, effectively logging them out from all devices.
+      security:
+        - BearerAuth: []
+      responses:
+        "200 - OK":
+          description: All sessions deleted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          logout:
+                            type: boolean
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  /users/@me/session:
+    get:
+      operationId: fetchCurrentSession
+      tags:
+        - sessions
+      summary: Get current session
+      description: |-
+        Retrieve information about the current session.
+      security:
+        - BearerAuth: []
+      responses:
+        "200 - OK":
+          description: Current session retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SessionDetail"
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404 - SessionNotFound":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionNotFound"
+
+  /users/@me/sessions/{id}:
+    get:
+      operationId: fetchSession
+      tags:
+        - sessions
+      summary: Get session by ID
+      description: |-
+        Retrieve a specific session by its ID.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200 - OK":
+          description: Session retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SessionDetail"
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404 - SessionNotFound":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionNotFound"
+    delete:
+      operationId: deleteSession
+      tags:
+        - sessions
+      summary: Delete session
+      description: |-
+        Delete a specific session by its ID.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200 - OK":
+          description: Session deleted successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          logout:
+                            type: boolean
+                            description: True if the deleted session was the current session
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404 - SessionNotFound":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionNotFound"
 
   /auth/login:
     post:
@@ -844,6 +1033,148 @@ paths:
                   - type: object
                     example:
                       request: "/api/auth/login"
+
+  /auth/register:
+    post:
+      operationId: userRegister
+      tags:
+        - authentication
+      summary: User registration
+      description: |-
+        Register a new user account. If successful, the user will be automatically logged in and a session cookie will be set.
+        Registration may be disabled on some servers.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "200 - OK":
+          description: User registered and logged in successfully
+          headers:
+            "Set-Cookie":
+              description: Session cookie for the authenticated user
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AuthResponse"
+                    required:
+                      - data
+        "400 - InvalidField":
+          description: Bad request due to invalid field values
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidField"
+        "403 - ServiceDisabled":
+          description: Registration is disabled on this server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceDisabled"
+        "409 - AlreadyExists":
+          description: Username or email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlreadyExists"
+
+  /auth/logout:
+    get:
+      operationId: userLogout
+      tags:
+        - authentication
+      summary: User logout
+      description: |-
+        Log out the current user and invalidate their session. Clears the session cookie.
+      security:
+        - BearerAuth: []
+      responses:
+        "200 - OK":
+          description: User logged out successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          success:
+                            type: boolean
+                            example: true
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404 - SessionNotFound":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionNotFound"
+
+  /auth/{type}/send:
+    get:
+      operationId: sendVerificationCode
+      tags:
+        - authentication
+      summary: Send verification code
+      description: |-
+        Send a verification code to the user via the specified method (e.g., email).
+        Used for 2FA verification during sensitive operations.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: type
+          in: path
+          required: true
+          description: The verification method type
+          schema:
+            type: string
+            enum: [email, totp]
+      responses:
+        "200 - OK":
+          description: Verification code sent successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          success:
+                            type: boolean
+                          message:
+                            type: string
+                            example: "Verification code sent"
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "500 - InternalError":
+          description: Failed to send verification code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalError"
 
   /relays/update:
     post:
@@ -922,6 +1253,1785 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
+  # Integrity endpoints
+  /integrity/verify:
+    post:
+      operationId: verifyIntegrity
+      tags:
+        - integrity
+      summary: Verify integrity token
+      description: |-
+        Verify an integrity token for server-to-server communication.
+        Requires challenge authentication.
+      security:
+        - IntegrityAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntegrityVerifyRequest"
+      responses:
+        "200 - OK":
+          description: Integrity token verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+        "400 - InvalidField":
+          description: Invalid field values
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidField"
+        "401 - NotLogged":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  /integrity/make:
+    post:
+      operationId: makeServerIntegrity
+      tags:
+        - integrity
+      summary: Create server integrity token
+      description: |-
+        Create an integrity token for a user on behalf of a server.
+        Requires challenge authentication.
+      security:
+        - IntegrityAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+              properties:
+                user_id:
+                  type: integer
+                  description: The user ID to create integrity for
+      responses:
+        "200 - OK":
+          description: Integrity token created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrityTokenResponse"
+        "401 - NotLogged":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404 - ServerNotFound":
+          description: Server not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServerNotFound"
+
+  /users/@me/integrity:
+    put:
+      operationId: makeUserIntegrity
+      tags:
+        - integrity
+      summary: Create user integrity token
+      description: |-
+        Create an integrity token for the current user to join a server.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address
+              properties:
+                address:
+                  type: string
+                  description: The server address to create integrity for
+      responses:
+        "200 - OK":
+          description: Integrity token created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrityTokenResponse"
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404 - UserNotFound":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserNotFound"
+
+  # Avatar endpoints
+  /avatars:
+    get:
+      operationId: searchAvatars
+      tags:
+        - avatars
+      summary: Search avatars
+      description: |-
+        Search for avatars by query string or specific IDs.
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Text query to search avatars
+        - name: ids
+          in: query
+          schema:
+            type: string
+          description: Comma-separated avatar IDs
+        - name: tags
+          in: query
+          schema:
+            type: string
+          description: Comma-separated tags to filter by
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200 - OK":
+          description: Avatars search completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvatarSearchResult"
+    put:
+      operationId: createAvatar
+      tags:
+        - avatars
+      summary: Create avatar
+      description: |-
+        Create a new avatar.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAvatarRequest"
+      responses:
+        "200 - OK":
+          description: Avatar created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Avatar"
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "401 - UnAuthorized":
+          description: User not authorized to create avatars
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "409 - AlreadyExists":
+          description: Avatar with this ID already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlreadyExists"
+
+  /avatars/{avatar_id}:
+    get:
+      operationId: fetchAvatar
+      tags:
+        - avatars
+      summary: Get avatar
+      description: |-
+        Retrieve an avatar by ID.
+      parameters:
+        - name: avatar_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200 - OK":
+          description: Avatar retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Avatar"
+        "404 - NotFound":
+          description: Avatar not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+    post:
+      operationId: updateAvatar
+      tags:
+        - avatars
+      summary: Update avatar
+      description: |-
+        Update an existing avatar.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: avatar_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAvatarRequest"
+      responses:
+        "200 - OK":
+          description: Avatar updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Avatar"
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "401 - UnAuthorized":
+          description: User not authorized to update this avatar
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "404 - NotFound":
+          description: Avatar not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+    delete:
+      operationId: deleteAvatar
+      tags:
+        - avatars
+      summary: Delete avatar
+      description: |-
+        Delete an avatar.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: avatar_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200 - OK":
+          description: Avatar deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "401 - UnAuthorized":
+          description: User not authorized to delete this avatar
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "404 - NotFound":
+          description: Avatar not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  /avatars/{avatar_id}/assets:
+    get:
+      operationId: fetchAvatarAssets
+      tags:
+        - avatars
+      summary: Get avatar assets
+      description: |-
+        Retrieve all assets for an avatar.
+      parameters:
+        - name: avatar_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: version
+          in: query
+          schema:
+            type: string
+          description: Filter by version (comma-separated)
+        - name: engine
+          in: query
+          schema:
+            type: string
+          description: Filter by engine (comma-separated)
+        - name: platform
+          in: query
+          schema:
+            type: string
+          description: Filter by platform (comma-separated)
+        - name: empty
+          in: query
+          schema:
+            type: boolean
+          description: Show empty assets
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200 - OK":
+          description: Avatar assets retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetListResponse"
+    put:
+      operationId: createAvatarAsset
+      tags:
+        - avatars
+      summary: Create avatar asset
+      description: |-
+        Create a new asset for an avatar.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: avatar_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAssetRequest"
+      responses:
+        "200 - OK":
+          description: Asset created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "409 - AlreadyExists":
+          description: Asset already exists for this version/engine/platform
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlreadyExists"
+
+  /avatars/{avatar_id}/assets/{asset_id}/file:
+    get:
+      operationId: downloadAvatarAssetFile
+      tags:
+        - avatars
+      summary: Download avatar asset file
+      description: |-
+        Download the asset file for an avatar.
+      parameters:
+        - name: avatar_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: asset_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200 - OK":
+          description: Asset file
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "404 - NotFound":
+          description: Asset or file not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+    post:
+      operationId: uploadAvatarAssetFile
+      tags:
+        - avatars
+      summary: Upload avatar asset file
+      description: |-
+        Upload the asset file for an avatar.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: avatar_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: asset_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: x-file-hash
+          in: header
+          schema:
+            type: string
+          description: SHA256 hash of the file for verification
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200 - OK":
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  /avatars/{avatar_id}/thumbnail:
+    get:
+      operationId: fetchAvatarThumbnail
+      tags:
+        - avatars
+      summary: Get avatar thumbnail
+      description: |-
+        Retrieve the thumbnail image for an avatar.
+      parameters:
+        - name: avatar_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200 - OK":
+          description: Thumbnail image
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        "404 - NotFound":
+          description: Avatar or thumbnail not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+    post:
+      operationId: uploadAvatarThumbnail
+      tags:
+        - avatars
+      summary: Upload avatar thumbnail
+      description: |-
+        Upload a thumbnail image for an avatar.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: avatar_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200 - OK":
+          description: Thumbnail uploaded
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  # World endpoints
+  /worlds:
+    get:
+      operationId: searchWorlds
+      tags:
+        - worlds
+      summary: Search worlds
+      description: |-
+        Search for worlds by query string or specific IDs.
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+          description: Text query to search worlds
+        - name: id
+          in: query
+          schema:
+            oneOf:
+              - type: string
+              - type: array
+                items:
+                  type: string
+          description: World ID(s) to search for
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200 - OK":
+          description: Worlds search completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorldSearchResult"
+    put:
+      operationId: createWorld
+      tags:
+        - worlds
+      summary: Create world
+      description: |-
+        Create a new world.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorldRequest"
+      responses:
+        "200 - OK":
+          description: World created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/World"
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "401 - UnAuthorized":
+          description: User not authorized to create worlds
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "409 - AlreadyExists":
+          description: World with this ID already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlreadyExists"
+
+  /worlds/{world_id}:
+    get:
+      operationId: fetchWorld
+      tags:
+        - worlds
+      summary: Get world
+      description: |-
+        Retrieve a world by ID.
+      parameters:
+        - name: world_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200 - OK":
+          description: World retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/World"
+        "404 - NotFound":
+          description: World not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+    post:
+      operationId: updateWorld
+      tags:
+        - worlds
+      summary: Update world
+      description: |-
+        Update an existing world.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: world_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWorldRequest"
+      responses:
+        "200 - OK":
+          description: World updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/World"
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "401 - UnAuthorized":
+          description: User not authorized to update this world
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "404 - NotFound":
+          description: World not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+    delete:
+      operationId: deleteWorld
+      tags:
+        - worlds
+      summary: Delete world
+      description: |-
+        Delete a world.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: world_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200 - OK":
+          description: World deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "401 - UnAuthorized":
+          description: User not authorized to delete this world
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "404 - NotFound":
+          description: World not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  /worlds/{world_id}/assets:
+    get:
+      operationId: fetchWorldAssets
+      tags:
+        - worlds
+      summary: Get world assets
+      description: |-
+        Retrieve all assets for a world.
+      parameters:
+        - name: world_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: version
+          in: query
+          schema:
+            type: string
+          description: Filter by version (comma-separated)
+        - name: engine
+          in: query
+          schema:
+            type: string
+          description: Filter by engine (comma-separated)
+        - name: platform
+          in: query
+          schema:
+            type: string
+          description: Filter by platform (comma-separated)
+        - name: empty
+          in: query
+          schema:
+            type: boolean
+          description: Show empty assets
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200 - OK":
+          description: World assets retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorldAssetListResponse"
+    put:
+      operationId: createWorldAsset
+      tags:
+        - worlds
+      summary: Create world asset
+      description: |-
+        Create a new asset for a world.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: world_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAssetRequest"
+      responses:
+        "200 - OK":
+          description: Asset created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorldAsset"
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "409 - AlreadyExists":
+          description: Asset already exists for this version/engine/platform
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlreadyExists"
+
+  /worlds/{world_id}/assets/{asset_id}/file:
+    get:
+      operationId: downloadWorldAssetFile
+      tags:
+        - worlds
+      summary: Download world asset file
+      description: |-
+        Download the asset file for a world.
+      parameters:
+        - name: world_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: asset_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200 - OK":
+          description: Asset file
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "404 - NotFound":
+          description: Asset or file not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+    post:
+      operationId: uploadWorldAssetFile
+      tags:
+        - worlds
+      summary: Upload world asset file
+      description: |-
+        Upload the asset file for a world.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: world_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: asset_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: x-file-hash
+          in: header
+          schema:
+            type: string
+          description: SHA256 hash of the file for verification
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200 - OK":
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  /worlds/{world_id}/thumbnail:
+    get:
+      operationId: fetchWorldThumbnail
+      tags:
+        - worlds
+      summary: Get world thumbnail
+      description: |-
+        Retrieve the thumbnail image for a world.
+      parameters:
+        - name: world_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200 - OK":
+          description: Thumbnail image
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        "404 - NotFound":
+          description: World or thumbnail not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+    post:
+      operationId: uploadWorldThumbnail
+      tags:
+        - worlds
+      summary: Upload world thumbnail
+      description: |-
+        Upload a thumbnail image for a world.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: world_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200 - OK":
+          description: Thumbnail uploaded
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  # Instance endpoints
+  /instances:
+    get:
+      operationId: searchInstances
+      tags:
+        - instances
+      summary: Search instances
+      description: |-
+        Search for active instances.
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+          description: Text query to search instances
+        - name: world
+          in: query
+          schema:
+            type: string
+          description: World identifier to filter by
+        - name: owner
+          in: query
+          schema:
+            type: string
+          description: Owner identifier to filter by
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200 - OK":
+          description: Instances search completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstanceSearchResult"
+    put:
+      operationId: createInstance
+      tags:
+        - instances
+      summary: Create instance
+      description: |-
+        Create a new instance.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInstanceRequest"
+      responses:
+        "200 - OK":
+          description: Instance created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Instance"
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404 - UserNotFound":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserNotFound"
+
+  /instances/{search}:
+    get:
+      operationId: fetchInstance
+      tags:
+        - instances
+      summary: Get instance
+      description: |-
+        Retrieve an instance by ID or name (prefix with # for name search).
+      parameters:
+        - name: search
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Instance ID or name (use # prefix for name, e.g., #my-instance)
+      responses:
+        "200 - OK":
+          description: Instance retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Instance"
+        "404 - NotFound":
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  # Relations endpoints
+  /relations/@me/following:
+    get:
+      operationId: fetchMyFollowing
+      tags:
+        - relations
+      summary: Get users I'm following
+      description: |-
+        Retrieve the list of users the current user is following.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 1000
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200 - OK":
+          description: Following list retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowingListResponse"
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  /relations/@me/followers:
+    get:
+      operationId: fetchMyFollowers
+      tags:
+        - relations
+      summary: Get my followers
+      description: |-
+        Retrieve the list of users following the current user.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 1000
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200 - OK":
+          description: Followers list retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowersListResponse"
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  /relations/{id}/following:
+    get:
+      operationId: fetchUserFollowing
+      tags:
+        - relations
+      summary: Get users a user is following
+      description: |-
+        Retrieve the list of users a specific user is following.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User identifier
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 1000
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200 - OK":
+          description: Following list retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  following:
+                    type: array
+                    items:
+                      type: string
+        "404 - UserNotFound":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserNotFound"
+
+  /relations/{id}/followers:
+    get:
+      operationId: fetchUserFollowers
+      tags:
+        - relations
+      summary: Get a user's followers
+      description: |-
+        Retrieve the list of users following a specific user.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User identifier
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 1000
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200 - OK":
+          description: Followers list retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  followers:
+                    type: array
+                    items:
+                      type: string
+        "404 - UserNotFound":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserNotFound"
+
+  /relations/{id}/follow:
+    post:
+      operationId: followUser
+      tags:
+        - relations
+      summary: Follow a user
+      description: |-
+        Follow another user.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User identifier to follow
+      responses:
+        "200 - OK":
+          description: Follow successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Relation"
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404 - UserNotFound":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserNotFound"
+        "409 - AlreadyExists":
+          description: Already following this user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlreadyExists"
+
+  /relations/{id}/unfollow:
+    post:
+      operationId: unfollowUser
+      tags:
+        - relations
+      summary: Unfollow a user
+      description: |-
+        Unfollow a user.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User identifier to unfollow
+      responses:
+        "200 - OK":
+          description: Unfollow successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404 - NotFound":
+          description: Relation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  /relations/{id}/request:
+    post:
+      operationId: handleFollowRequest
+      tags:
+        - relations
+      summary: Accept or reject follow request
+      description: |-
+        Accept or reject a pending follow request.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User identifier who sent the request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+              properties:
+                type:
+                  type: string
+                  enum: [accept, reject]
+      responses:
+        "200 - OK":
+          description: Request handled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum: [accepted, rejected]
+                  success:
+                    type: boolean
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  /relations:
+    post:
+      operationId: createRelation
+      tags:
+        - relations
+      summary: Create relation (server-to-server)
+      description: |-
+        Create a relation on behalf of a server. Used for federated follow requests.
+      security:
+        - IntegrityAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+                - initiator
+                - target
+              properties:
+                type:
+                  type: string
+                  enum: [follow, unfollow]
+                initiator:
+                  type: integer
+                target:
+                  type: integer
+      responses:
+        "200 - OK":
+          description: Relation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RelationResponse"
+        "401 - NotLogged":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  # Notifications endpoints
+  /notifications:
+    post:
+      operationId: createNotification
+      tags:
+        - notifications
+      summary: Create notification (server-to-server)
+      description: |-
+        Create notifications for users. Requires challenge authentication.
+      security:
+        - IntegrityAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNotificationRequest"
+      responses:
+        "200 - OK":
+          description: Notification created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationResponse"
+        "401 - NotLogged":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404 - ServerNotFound":
+          description: Server not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServerNotFound"
+
+  /users/@me/notifications:
+    get:
+      operationId: fetchNotifications
+      tags:
+        - notifications
+      summary: Get notifications
+      description: |-
+        Retrieve notifications for the current user.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: after
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Timestamp to get notifications after
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200 - OK":
+          description: Notifications retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationListResponse"
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  # Presence endpoints
+  /presence:
+    post:
+      operationId: updatePresenceByServer
+      tags:
+        - presence
+      summary: Update presence (server-to-server)
+      description: |-
+        Update presence information for users. Requires challenge authentication.
+      security:
+        - IntegrityAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PresenceServerRequest"
+      responses:
+        "200 - OK":
+          description: Presence updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "401 - NotLogged":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404 - ServerNotFound":
+          description: Server not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServerNotFound"
+
+  /users/@me/presence:
+    put:
+      operationId: updatePresenceByUser
+      tags:
+        - presence
+      summary: Update my presence
+      description: |-
+        Update the current user's presence status or location.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/PresenceStatusRequest"
+                - $ref: "#/components/schemas/PresenceLocationRequest"
+      responses:
+        "200 - OK":
+          description: Presence updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  # Server endpoints
+  /server:
+    get:
+      operationId: getServerInfo
+      tags:
+        - server
+      summary: Get server information
+      description: |-
+        Get detailed server information including gateways, features, and version.
+      responses:
+        "200 - OK":
+          description: Server info retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServerInfo"
+
+  # Relay admin endpoints
+  /relays:
+    get:
+      operationId: listRelays
+      tags:
+        - relays
+      summary: List relays (admin only)
+      description: |-
+        List all relay servers. Requires admin privileges.
+      security:
+        - BearerAuth: []
+      responses:
+        "200 - OK":
+          description: Relays list retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RelayInfo"
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "401 - UnAuthorized":
+          description: Admin privileges required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+
+  /relays/{id}:
+    get:
+      operationId: fetchRelay
+      tags:
+        - relays
+      summary: Get relay (admin only)
+      description: |-
+        Get detailed relay information. Requires admin privileges.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200 - OK":
+          description: Relay retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RelayInfo"
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "401 - UnAuthorized":
+          description: Admin privileges required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "404 - NotFound":
+          description: Relay not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  /relays/{id}/logs:
+    get:
+      operationId: fetchRelayLogs
+      tags:
+        - relays
+      summary: Get relay logs (admin only)
+      description: |-
+        Get logs from a relay server. Requires admin privileges.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: since
+          in: query
+          schema:
+            type: integer
+          description: Timestamp to get logs since
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200 - OK":
+          description: Logs retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RelayLog"
+        "401 - NotLogged":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "401 - UnAuthorized":
+          description: Admin privileges required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "404 - NotFound":
+          description: Relay not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
 
 components:
   schemas:
@@ -1813,6 +3923,904 @@ components:
         - server
         - next_update
         - instances
+
+    # New schemas for additional endpoints
+    RegisterRequest:
+      type: object
+      required:
+        - username
+        - password
+        - email
+      properties:
+        username:
+          type: string
+          pattern: "^[a-z0-9_.-]{3,16}$"
+          description: Username (unique identifier)
+        password:
+          type: string
+          minLength: 6
+          maxLength: 128
+          description: User password
+        email:
+          type: string
+          format: email
+          maxLength: 320
+          description: User's email address
+        display:
+          type: string
+          pattern: "^.{3,32}$"
+          description: Display name (optional, defaults to username)
+
+    ServiceDisabled:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when a service is disabled
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "This service is disabled."
+                code:
+                  type: integer
+                  example: 10
+                status:
+                  type: integer
+                  example: 403
+
+    SessionNotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when a session is not found
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Session not found."
+                code:
+                  type: integer
+                  example: 4
+                status:
+                  type: integer
+                  example: 404
+
+    ServerNotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when a server is not found
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Server not found."
+                code:
+                  type: integer
+                  example: 11
+                status:
+                  type: integer
+                  example: 404
+
+    SessionListResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionDetail"
+
+    SessionDetail:
+      type: object
+      properties:
+        id:
+          type: string
+        expires_at:
+          type: integer
+          format: int64
+        created_at:
+          type: integer
+          format: int64
+        current:
+          type: boolean
+          description: Whether this is the current session
+        devices:
+          type: array
+          items:
+            type: object
+            properties:
+              ip:
+                type: string
+              user_agent:
+                type: string
+              last_seen:
+                type: integer
+                format: int64
+
+    IntegrityVerifyRequest:
+      type: object
+      required:
+        - type
+        - token
+        - user_id
+      properties:
+        type:
+          type: string
+          enum: [in, out]
+        token:
+          type: string
+        user_id:
+          type: integer
+
+    IntegrityTokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        expires:
+          type: integer
+          format: int64
+        created_at:
+          type: integer
+          format: int64
+
+    Avatar:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        server:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        thumbnail:
+          type: string
+          nullable: true
+          format: uri
+        owner:
+          type: string
+
+    AvatarSearchResult:
+      type: object
+      properties:
+        total:
+          type: integer
+        search:
+          type: string
+        ids:
+          type: array
+          items:
+            type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        avatars:
+          type: array
+          items:
+            $ref: "#/components/schemas/Avatar"
+
+    CreateAvatarRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Optional custom ID
+        title:
+          type: string
+        description:
+          type: string
+        thumbnail:
+          type: string
+          format: uri
+
+    UpdateAvatarRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        thumbnail:
+          type: string
+          format: uri
+
+    Asset:
+      type: object
+      properties:
+        id:
+          type: integer
+        version:
+          type: integer
+        engine:
+          type: string
+        platform:
+          type: string
+        is_empty:
+          type: boolean
+        url:
+          type: string
+          nullable: true
+          format: uri
+        features:
+          type: array
+          items:
+            type: string
+        hash:
+          type: string
+          nullable: true
+        size:
+          type: integer
+          nullable: true
+
+    AssetListResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        assets:
+          type: array
+          items:
+            $ref: "#/components/schemas/Asset"
+
+    CreateAssetRequest:
+      type: object
+      required:
+        - version
+        - engine
+        - platform
+      properties:
+        id:
+          type: integer
+        version:
+          type: integer
+        engine:
+          type: string
+        platform:
+          type: string
+        url:
+          type: string
+          format: uri
+        hash:
+          type: string
+        size:
+          type: integer
+
+    World:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        server:
+          type: string
+        capacity:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: string
+        thumbnail:
+          type: string
+          nullable: true
+          format: uri
+        owner:
+          type: string
+        contributors:
+          type: array
+          items:
+            type: string
+
+    WorldSearchResult:
+      type: object
+      properties:
+        total:
+          type: integer
+        search:
+          type: string
+        ids:
+          type: array
+          items:
+            type: string
+        limit:
+          type: integer
+        offset:
+          type: integer
+        worlds:
+          type: array
+          items:
+            $ref: "#/components/schemas/World"
+
+    CreateWorldRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Optional custom ID
+        title:
+          type: string
+        description:
+          type: string
+        capacity:
+          type: integer
+        thumbnail:
+          type: string
+          format: uri
+        contributors:
+          type: array
+          items:
+            type: string
+
+    UpdateWorldRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        capacity:
+          type: integer
+        thumbnail:
+          type: string
+          format: uri
+        contributors:
+          type: array
+          items:
+            type: string
+
+    WorldAsset:
+      type: object
+      properties:
+        id:
+          type: integer
+        version:
+          type: integer
+        engine:
+          type: string
+        platform:
+          type: string
+        is_empty:
+          type: boolean
+        url:
+          type: string
+          nullable: true
+          format: uri
+        mods:
+          type: array
+          items:
+            type: string
+        features:
+          type: array
+          items:
+            type: string
+        hash:
+          type: string
+          nullable: true
+        size:
+          type: integer
+          nullable: true
+
+    WorldAssetListResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        assets:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorldAsset"
+
+    Instance:
+      type: object
+      properties:
+        id:
+          type: integer
+        server:
+          type: string
+        name:
+          type: string
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        thumbnail:
+          type: string
+          nullable: true
+          format: uri
+        capacity:
+          type: integer
+        owner:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        world:
+          type: string
+        connection:
+          type: object
+          nullable: true
+          properties:
+            method:
+              type: string
+            data:
+              type: string
+              description: Base64 encoded connection data
+        client_count:
+          type: integer
+        players:
+          type: array
+          items:
+            type: object
+            properties:
+              user:
+                type: string
+                nullable: true
+              display:
+                type: string
+
+    InstanceSearchResult:
+      type: object
+      properties:
+        total:
+          type: integer
+        query:
+          type: string
+        world:
+          type: string
+        owner:
+          type: string
+        limit:
+          type: integer
+        offset:
+          type: integer
+        instances:
+          type: array
+          items:
+            $ref: "#/components/schemas/Instance"
+
+    CreateInstanceRequest:
+      type: object
+      required:
+        - world
+        - capacity
+        - expose
+      properties:
+        name:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        thumbnail:
+          type: string
+          format: uri
+        world:
+          type: string
+          description: World identifier
+        capacity:
+          type: integer
+        expose:
+          type: string
+          description: Whether the instance is public or private
+        use_password:
+          type: boolean
+          default: false
+        password:
+          type: string
+        use_whitelist:
+          type: boolean
+          default: false
+        whitelist:
+          type: array
+          items:
+            type: string
+
+    Relation:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        initiator:
+          type: string
+        target:
+          type: string
+        created_at:
+          type: integer
+          format: int64
+        updated_at:
+          type: integer
+          format: int64
+
+    RelationResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [follow_accepted, follow_rejected, follow_pending, unfollow_accepted, error]
+        retryAfter:
+          type: integer
+        note:
+          type: string
+
+    FollowingListResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        following:
+          type: array
+          items:
+            type: object
+            properties:
+              user:
+                type: string
+              at:
+                type: integer
+                format: int64
+
+    FollowersListResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        followers:
+          type: array
+          items:
+            type: object
+            properties:
+              user:
+                type: string
+              at:
+                type: integer
+                format: int64
+
+    CreateNotificationRequest:
+      type: object
+      required:
+        - type
+        - to
+        - data
+      properties:
+        type:
+          type: string
+        to:
+          type: array
+          items:
+            type: integer
+        data:
+          type: object
+        external_id:
+          type: string
+          format: uuid
+        expires_at:
+          type: integer
+          format: int64
+
+    NotificationResponse:
+      type: object
+      properties:
+        type:
+          type: string
+        to:
+          type: array
+          items:
+            type: string
+        data:
+          type: object
+        external_id:
+          type: string
+        expires_at:
+          type: integer
+
+    NotificationListResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+        after:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        notifications:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              data:
+                type: object
+              external_id:
+                type: string
+              expires_at:
+                type: integer
+              created_at:
+                type: integer
+
+    PresenceStatusRequest:
+      type: object
+      required:
+        - type
+        - status
+      properties:
+        type:
+          type: string
+          enum: [status]
+        status:
+          type: string
+          enum: [invisible, join_me_all, join_me_friend, online, idle, dnd]
+        message:
+          type: string
+          maxLength: 128
+
+    PresenceLocationRequest:
+      type: object
+      required:
+        - type
+        - mode
+        - instance
+        - world
+      properties:
+        type:
+          type: string
+          enum: [location]
+        mode:
+          type: string
+          enum: [join, leave]
+        instance:
+          type: string
+        world:
+          type: string
+
+    PresenceServerRequest:
+      type: object
+      required:
+        - type
+        - to
+      properties:
+        type:
+          type: string
+          enum: [location]
+        to:
+          type: array
+          items:
+            type: integer
+        mode:
+          type: string
+          enum: [join, leave]
+        instance:
+          type: string
+        world:
+          type: string
+
+    WellKnownResponse:
+      type: object
+      properties:
+        address:
+          type: string
+        contact:
+          type: string
+        port:
+          type: integer
+        endpoints:
+          type: object
+          properties:
+            wellknown:
+              type: string
+              format: uri
+            server:
+              type: string
+              format: uri
+        versions:
+          type: object
+          properties:
+            server:
+              type: string
+            node:
+              type: string
+        status:
+          type: string
+        security:
+          type: object
+          nullable: true
+          properties:
+            message:
+              type: string
+            features_disabled:
+              type: array
+              items:
+                type: string
+        error_message:
+          type: string
+          nullable: true
+        maintenance:
+          type: object
+          nullable: true
+          properties:
+            message:
+              type: string
+            start_at:
+              type: integer
+              nullable: true
+            end_at:
+              type: integer
+              nullable: true
+
+    ServerInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        address:
+          type: string
+        gateways:
+          type: object
+          properties:
+            http:
+              type: string
+              format: uri
+            ws:
+              type: string
+              format: uri
+            web:
+              type: string
+              format: uri
+        features:
+          type: array
+          items:
+            type: string
+        version:
+          type: string
+        ready_at:
+          type: integer
+          format: int64
+        icon:
+          type: string
+          format: uri
+        certificate:
+          type: string
+
+    RelayInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+        runtime:
+          type: string
+        running:
+          type: boolean
+        status:
+          oneOf:
+            - $ref: "#/components/schemas/RelayStatus"
+            - type: string
+        address:
+          type: object
+          additionalProperties:
+            type: string
+
+    RelayStatus:
+      type: object
+      properties:
+        instances:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              internal_id:
+                type: integer
+              players:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    client_id:
+                      type: integer
+                    display:
+                      type: string
+                    flags:
+                      type: array
+                      items:
+                        type: string
+              flags:
+                type: array
+                items:
+                  type: string
+              world:
+                type: string
+              capacity:
+                type: integer
+        max_instances:
+          type: integer
+        clients:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              address:
+                type: string
+              platform:
+                type: string
+              engine:
+                type: string
+              user:
+                type: string
+                nullable: true
+        version:
+          type: string
+        protocol:
+          type: integer
+        uptime:
+          type: integer
+        response:
+          type: integer
+
+    RelayLog:
+      type: object
+      properties:
+        timestamp:
+          type: integer
+        level:
+          type: string
+        message:
+          type: string
 
   securitySchemes:
     BearerAuth:
