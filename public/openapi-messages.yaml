@@ -1,0 +1,670 @@
+openapi: 3.1.3
+
+info:
+  title: Nox Messages API
+  version: 0.0.1
+  description: |-
+    API endpoints for messaging and conversation management in Nox.
+    Supports direct messages, group conversations, and federated message delivery.
+
+tags:
+  - name: conversations
+    description: Conversation management (create, list, retrieve)
+  - name: messages
+    description: Message operations (send, list, mark as read)
+  - name: federation
+    description: Federated endpoints for server-to-server communication
+
+paths:
+  /api/messages/conversations:
+    post:
+      operationId: createConversation
+      tags:
+        - conversations
+      summary: Create a new conversation
+      description: Creates a new conversation (direct or group). The creator's server becomes the authoritative server.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateConversationInput"
+      responses:
+        "200":
+          description: Conversation created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateConversationOutput"
+        "401":
+          description: Not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    
+    get:
+      operationId: getConversations
+      tags:
+        - conversations
+      summary: Get user conversations
+      description: Retrieves all conversations for the authenticated user (both local and remote)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of conversations to return
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          description: Number of conversations to skip (for pagination)
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        "200":
+          description: Conversations retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetConversationsOutput"
+        "401":
+          description: Not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/messages/conversations/{id}:
+    get:
+      operationId: getConversation
+      tags:
+        - conversations
+      summary: Get a specific conversation
+      description: Retrieves details of a specific conversation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Conversation ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Conversation retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetConversationOutput"
+        "401":
+          description: Not logged in or unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/messages/conversations/{id}/messages:
+    post:
+      operationId: sendMessage
+      tags:
+        - messages
+      summary: Send a message
+      description: Sends a message to a conversation. If the local server is not authoritative, the message is proxied to the authoritative server.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Conversation ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageInput"
+      responses:
+        "200":
+          description: Message sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendMessageOutput"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not logged in or not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    
+    get:
+      operationId: getMessages
+      tags:
+        - messages
+      summary: Get conversation messages
+      description: Retrieves messages from a conversation. If the local server is not authoritative, messages are fetched from the authoritative server.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Conversation ID
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum number of messages to return
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+        - name: before
+          in: query
+          description: Message ID to fetch messages before (for pagination)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Messages retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetMessagesOutput"
+        "401":
+          description: Not logged in or not a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/messages/conversations/{id}/read:
+    post:
+      operationId: markAsRead
+      tags:
+        - messages
+      summary: Mark conversation as read
+      description: Updates the last_read_at timestamp for the user in this conversation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Conversation ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarkAsReadInput"
+      responses:
+        "200":
+          description: Conversation marked as read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarkAsReadOutput"
+        "401":
+          description: Not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/messages/receive:
+    post:
+      operationId: receiveMessage
+      tags:
+        - federation
+      summary: Receive a message from authoritative server
+      description: Federated endpoint for receiving messages from the authoritative server. Requires server authentication.
+      security:
+        - ServerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReceiveMessageInput"
+      responses:
+        "200":
+          description: Message received and users notified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReceiveMessageOutput"
+        "401":
+          description: Server not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/messages/conversations/reference:
+    post:
+      operationId: receiveConversationReference
+      tags:
+        - federation
+      summary: Receive a conversation reference
+      description: Federated endpoint for creating conversation references on non-authoritative servers. Requires server authentication.
+      security:
+        - ServerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReceiveConversationReferenceInput"
+      responses:
+        "200":
+          description: Conversation references created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReceiveConversationReferenceOutput"
+        "401":
+          description: Server not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    CreateConversationInput:
+      type: object
+      required:
+        - members
+      properties:
+        members:
+          type: array
+          description: Array of user references (user_id@server or user_id for local)
+          items:
+            type: string
+            minLength: 1
+          minItems: 1
+        title:
+          type: string
+          description: Optional conversation title (for groups)
+          maxLength: 255
+        thumbnail:
+          type: string
+          description: Optional thumbnail URL for the conversation
+          maxLength: 500
+
+    CreateConversationOutput:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Conversation ID
+        title:
+          type: string
+          nullable: true
+          description: Conversation title
+        thumbnail:
+          type: string
+          nullable: true
+          description: Conversation thumbnail URL
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        last_message:
+          type: string
+          format: date-time
+          nullable: true
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConversationMember"
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+
+    GetConversationsOutput:
+      type: object
+      properties:
+        conversations:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              title:
+                type: string
+                nullable: true
+              avatar:
+                type: string
+                nullable: true
+              authority_server:
+                type: string
+              last_message:
+                type: string
+                format: date-time
+                nullable: true
+              is_local:
+                type: boolean
+              created_at:
+                type: string
+                format: date-time
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    GetConversationOutput:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+          nullable: true
+        thumbnail:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        last_message:
+          type: string
+          format: date-time
+          nullable: true
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConversationMember"
+
+    SendMessageInput:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 10000
+          description: Message content
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageAttachment"
+          description: Optional attachments
+        reply_to:
+          type: string
+          description: ID of the message being replied to
+        sender:
+          type: string
+          pattern: "^[0-9]+@[a-z0-9.-]+$"
+          description: Optional sender reference (used when a server relays for a user)
+
+    SendMessageOutput:
+      allOf:
+        - $ref: "#/components/schemas/Message"
+
+    GetMessagesOutput:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+        limit:
+          type: integer
+        before:
+          type: string
+          nullable: true
+
+    MarkAsReadInput:
+      type: object
+      additionalProperties: false
+
+    MarkAsReadOutput:
+      type: object
+      properties:
+        success:
+          type: boolean
+
+    ReceiveMessageInput:
+      type: object
+      required:
+        - id
+        - conversation_id
+        - sender
+        - content
+        - created_at
+        - recipients
+      properties:
+        id:
+          type: string
+          description: Message ID
+        conversation_id:
+          type: string
+          description: Conversation ID
+        sender:
+          type: string
+          description: Sender reference (user_id@server)
+        content:
+          type: string
+          description: Message content
+        attachments:
+          type: array
+          items:
+            type: object
+          description: Message attachments
+        reply:
+          type: string
+          description: ID of the message being replied to
+        created_at:
+          type: string
+          format: date-time
+          description: Message creation timestamp
+        recipients:
+          type: array
+          items:
+            type: string
+          description: Array of recipient user references
+
+    ReceiveMessageOutput:
+      type: object
+      properties:
+        success:
+          type: boolean
+
+    ReceiveConversationReferenceInput:
+      type: object
+      required:
+        - id
+        - users
+      properties:
+        id:
+          type: string
+          description: Conversation ID
+        users:
+          type: array
+          items:
+            type: integer
+          description: Array of local user IDs
+
+    ReceiveConversationReferenceOutput:
+      type: object
+      properties:
+        success:
+          type: boolean
+
+    ConversationMember:
+      type: object
+      properties:
+        id:
+          type: string
+        conversation_id:
+          type: string
+        user_ref:
+          type: string
+          description: User reference (user_id@server or user_id for local)
+        joined_at:
+          type: string
+          format: date-time
+        last_read_at:
+          type: string
+          format: date-time
+          nullable: true
+        notification_mode:
+          type: string
+          enum: [ALL, MENTIONS, MUTED]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+        conversation_id:
+          type: string
+        sender_ref:
+          type: string
+          description: Sender reference (user_id@server)
+        content:
+          type: string
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageAttachment"
+        reply_to_id:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [SENDING, SENT, DELIVERED, FAILED, RETRYING]
+        retry_count:
+          type: integer
+        delivery_errors:
+          type: object
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        edited_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    MessageAttachment:
+      type: object
+      required:
+        - type
+        - url
+        - size
+        - mime
+      properties:
+        type:
+          type: string
+          description: Attachment type (image, video, file, etc.)
+        url:
+          type: string
+          description: Attachment URL
+        size:
+          type: integer
+          description: File size in bytes
+        mime:
+          type: string
+          description: MIME type
+        filename:
+          type: string
+          description: Original filename
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        field:
+          type: string
+        code:
+          type: integer
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: User authentication via bearer token
+    ServerAuth:
+      type: http
+      scheme: bearer
+      description: Server-to-server authentication via challenge token

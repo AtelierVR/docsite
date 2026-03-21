@@ -1,0 +1,977 @@
+openapi: 3.1.3
+
+info:
+  title: Nox Social API
+  version: 0.0.1
+  contact:
+    name: Nox Team
+    url: https://github.com/AtelierVR
+  license:
+    name: AGPL-3.0
+    url: https://www.gnu.org/licenses/agpl-3.0.en.html
+  description: |-
+    API endpoints for social features in Nox.
+    Covers user relations (follow/unfollow), notifications, and presence management.
+    Some endpoints support server-to-server federation using Integrity authentication.
+
+servers:
+  - url: https://nox.hactazia.fr/api
+    description: Production server
+
+tags:
+  - name: relations
+    description: User relations (follow, unfollow, followers, following)
+  - name: notifications
+    description: User notifications management
+  - name: presence
+    description: User presence status and location
+
+paths:
+  # ─── Relations ───────────────────────────────────────────────────────────────
+
+  /relations/@me/following:
+    get:
+      operationId: fetchMyFollowing
+      tags: [relations]
+      summary: Get users I am following
+      description: Retrieve the paginated list of users the current authenticated user is following.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Following list retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/FollowingListResponse"
+                    required: [data]
+        "401":
+          description: Not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  /relations/@me/followers:
+    get:
+      operationId: fetchMyFollowers
+      tags: [relations]
+      summary: Get my followers
+      description: Retrieve the paginated list of users who follow the current authenticated user.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Followers list retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/FollowersListResponse"
+                    required: [data]
+        "401":
+          description: Not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  /relations/{id}/following:
+    get:
+      operationId: fetchUserFollowing
+      tags: [relations]
+      summary: Get users a specific user is following
+      description: Retrieve the paginated list of users a specific user is following.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User ID, username, or full identifier
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Following list retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/FollowingListResponse"
+                    required: [data]
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserNotFound"
+
+  /relations/{id}/followers:
+    get:
+      operationId: fetchUserFollowers
+      tags: [relations]
+      summary: Get a specific user's followers
+      description: Retrieve the paginated list of users who follow a specific user.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User ID, username, or full identifier
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Followers list retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/FollowersListResponse"
+                    required: [data]
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserNotFound"
+
+  /relations/{id}/follow:
+    post:
+      operationId: followUser
+      tags: [relations]
+      summary: Follow a user
+      description: |-
+        Follow another user. If the target user requires approval, a follow request will be created
+        instead of an immediate follow. The response includes the resulting relation type.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User ID, username, or full identifier of the user to follow
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Follow action result
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Relation"
+                    required: [data]
+        "401":
+          description: Not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserNotFound"
+        "409":
+          description: Already following this user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlreadyExists"
+
+  /relations/{id}/unfollow:
+    post:
+      operationId: unfollowUser
+      tags: [relations]
+      summary: Unfollow a user
+      description: Unfollow a user. The follow relation will be removed.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User ID, username, or full identifier of the user to unfollow
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Unfollow successful
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          success:
+                            type: boolean
+        "401":
+          description: Not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404":
+          description: Relation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  /relations/{id}/request:
+    post:
+      operationId: handleFollowRequest
+      tags: [relations]
+      summary: Accept or reject a follow request
+      description: Accept or reject a pending follow request from another user.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User identifier who sent the follow request
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              properties:
+                type:
+                  type: string
+                  enum: [accept, reject]
+                  description: Whether to accept or reject the request
+      responses:
+        "200":
+          description: Follow request handled
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                            enum: [accepted, rejected]
+                          success:
+                            type: boolean
+        "401":
+          description: Not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404":
+          description: Follow request not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  /relations:
+    post:
+      operationId: createRelation
+      tags: [relations]
+      summary: Create or update relation (server-to-server)
+      description: |-
+        Create or update a user relation on behalf of a federated server.
+        Used for cross-server follow/unfollow operations. Requires Integrity authentication.
+      security:
+        - IntegrityAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRelationRequest"
+      responses:
+        "200":
+          description: Relation operation result
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RelationResponse"
+                    required: [data]
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  # ─── Notifications ────────────────────────────────────────────────────────────
+
+  /notifications:
+    post:
+      operationId: createNotification
+      tags: [notifications]
+      summary: Create notification (server-to-server)
+      description: |-
+        Create notifications for one or more users on behalf of a federated server.
+        Requires Integrity authentication.
+      security:
+        - IntegrityAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNotificationRequest"
+      responses:
+        "200":
+          description: Notification created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/NotificationResponse"
+                    required: [data]
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404":
+          description: Server not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServerNotFound"
+
+  /users/@me/notifications:
+    get:
+      operationId: fetchNotifications
+      tags: [notifications]
+      summary: Get my notifications
+      description: |-
+        Retrieve notifications for the current authenticated user.
+        The `after` parameter is required to enable incremental polling.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: after
+          in: query
+          required: true
+          description: Return notifications created after this timestamp (milliseconds since epoch)
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Notifications retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/NotificationListResponse"
+                    required: [data]
+        "401":
+          description: Not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  # ─── Presence ─────────────────────────────────────────────────────────────────
+
+  /users/@me/presence:
+    put:
+      operationId: updatePresenceByUser
+      tags: [presence]
+      summary: Update my presence
+      description: |-
+        Update the current user's presence status or location.
+        Two types are supported:
+        - `status`: update online status and optional status message
+        - `location`: notify a world instance join or leave event
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/PresenceStatusRequest"
+                - $ref: "#/components/schemas/PresenceLocationRequest"
+      responses:
+        "200":
+          description: Presence updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          success:
+                            type: boolean
+        "400":
+          description: Invalid presence data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidField"
+        "401":
+          description: Not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  /presence:
+    post:
+      operationId: updatePresenceByServer
+      tags: [presence]
+      summary: Update presence for users (server-to-server)
+      description: |-
+        Update the presence of one or more users on behalf of a federated server.
+        Requires Integrity authentication.
+      security:
+        - IntegrityAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PresenceServerRequest"
+      responses:
+        "200":
+          description: Presence updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          to:
+                            type: array
+                            items:
+                              type: string
+                            description: User identifiers that were updated
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404":
+          description: Server not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServerNotFound"
+
+components:
+  schemas:
+    Response:
+      type: object
+      properties:
+        data:
+          type: object
+        request:
+          type: string
+          example: "/api/relations/@me/following"
+        time:
+          type: integer
+          format: int64
+          example: 1750945093437
+      required: [data, request, time]
+
+    Error:
+      type: object
+      properties:
+        data:
+          type: "null"
+        request:
+          type: string
+        time:
+          type: integer
+        error:
+          type: object
+          required: [message, code, status]
+          properties:
+            message:
+              type: string
+            code:
+              type: integer
+            status:
+              type: integer
+
+    NotLogged:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              properties:
+                message: {example: "You are not logged in."}
+                code: {example: 7}
+                status: {example: 401}
+
+    NotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              properties:
+                message: {example: "Resource not found."}
+                code: {example: 3}
+                status: {example: 404}
+
+    UserNotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              properties:
+                message: {example: "User not found."}
+                code: {example: 2}
+                status: {example: 404}
+
+    ServerNotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              properties:
+                message: {example: "Server not found."}
+                code: {example: 11}
+                status: {example: 404}
+
+    AlreadyExists:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              properties:
+                message: {example: "{0} already exists with {1}."}
+                code: {example: 6}
+                status: {example: 409}
+
+    InvalidField:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              properties:
+                message: {example: "Invalid field: {0}, {1}."}
+                code: {example: 5}
+                status: {example: 400}
+
+    Relation:
+      type: object
+      description: A user relation (follow, friend request, etc.)
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique relation ID
+        type:
+          type: string
+          description: Relation type (e.g., "follow", "requested_by", "pending")
+          example: "follow"
+        initiator:
+          type: string
+          description: Initiator user identifier
+          example: "1@nox.hactazia.fr"
+        target:
+          type: string
+          description: Target user identifier
+          example: "2@nox.hactazia.fr"
+        created_at:
+          type: integer
+          format: int64
+          description: Relation creation timestamp in milliseconds
+        updated_at:
+          type: integer
+          format: int64
+          description: Last update timestamp in milliseconds
+      required: [id, type, initiator, target, created_at, updated_at]
+
+    CreateRelationRequest:
+      type: object
+      required: [type, initiator, target]
+      properties:
+        type:
+          type: string
+          enum: [follow, unfollow, follow_accept, follow_refuse]
+          description: Relation action type
+        initiator:
+          type: integer
+          description: Initiator user numeric ID
+        target:
+          type: integer
+          description: Target user numeric ID
+
+    RelationResponse:
+      type: object
+      description: Result of a server-to-server relation operation
+      properties:
+        type:
+          type: string
+          enum: [follow_accepted, follow_rejected, follow_pending, unfollow_accepted, error, ok]
+          description: Result type
+        retryAfter:
+          type: integer
+          nullable: true
+          description: Milliseconds to wait before retrying (if rate-limited)
+        note:
+          type: string
+          nullable: true
+          description: Additional information about the result
+      required: [type]
+
+    FollowingListResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of followed users
+        limit:
+          type: integer
+        offset:
+          type: integer
+        following:
+          type: array
+          items:
+            type: object
+            properties:
+              user:
+                type: string
+                description: User identifier being followed
+                example: "2@nox.hactazia.fr"
+              at:
+                type: integer
+                format: int64
+                description: Timestamp when the follow was created
+      required: [total, limit, offset, following]
+
+    FollowersListResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of followers
+        limit:
+          type: integer
+        offset:
+          type: integer
+        followers:
+          type: array
+          items:
+            type: object
+            properties:
+              user:
+                type: string
+                description: User identifier of the follower
+                example: "3@nox.hactazia.fr"
+              at:
+                type: integer
+                format: int64
+                description: Timestamp when the follow was created
+      required: [total, limit, offset, followers]
+
+    CreateNotificationRequest:
+      type: object
+      required: [type, to, data]
+      properties:
+        type:
+          type: string
+          description: Notification type identifier (normalized text, e.g., "follow_request")
+        to:
+          type: array
+          items:
+            type: integer
+          description: Target user numeric IDs
+        data:
+          type: object
+          description: Notification payload (type-specific data)
+        external_id:
+          type: string
+          format: uuid
+          description: Optional deduplication ID (UUID v4)
+        expires_at:
+          type: integer
+          format: int64
+          description: Optional expiration timestamp in milliseconds
+
+    NotificationResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Notification type identifier
+        to:
+          type: array
+          items:
+            type: string
+          description: Recipients as user identifiers (user@server)
+        data:
+          type: object
+          description: Notification payload
+        external_id:
+          type: string
+          nullable: true
+          description: Deduplication ID
+        expires_at:
+          type: integer
+          nullable: true
+          description: Expiration timestamp in milliseconds
+      required: [type, to, data]
+
+    NotificationListResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of notifications matching the query
+        after:
+          type: integer
+          format: int64
+          description: The `after` timestamp used in the query
+        limit:
+          type: integer
+        offset:
+          type: integer
+        notifications:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                description: Notification type identifier
+              data:
+                type: object
+                description: Notification payload
+              external_id:
+                type: string
+                nullable: true
+              expires_at:
+                type: integer
+                format: int64
+                nullable: true
+              created_at:
+                type: integer
+                format: int64
+                description: Notification creation timestamp in milliseconds
+      required: [total, after, limit, offset, notifications]
+
+    PresenceStatusRequest:
+      type: object
+      required: [type, status]
+      description: Update user online status
+      properties:
+        type:
+          type: string
+          enum: [status]
+        status:
+          type: string
+          enum: [invisible, join_me_all, join_me_friend, online, idle, dnd]
+          description: |-
+            User online status:
+            - `invisible`: appear offline
+            - `join_me_all`: invite anyone to join
+            - `join_me_friend`: invite friends to join
+            - `online`: standard online
+            - `idle`: away from keyboard
+            - `dnd`: do not disturb
+        message:
+          type: string
+          maxLength: 128
+          description: Optional status message
+
+    PresenceLocationRequest:
+      type: object
+      required: [type, mode, instance, world]
+      description: Report a world instance join or leave event
+      properties:
+        type:
+          type: string
+          enum: [location]
+        mode:
+          type: string
+          enum: [join, leave]
+          description: Whether the user joined or left the instance
+        instance:
+          type: string
+          description: Instance identifier
+          example: "42@nox.hactazia.fr"
+        world:
+          type: string
+          description: World identifier
+          example: "10@nox.hactazia.fr"
+
+    PresenceServerRequest:
+      type: object
+      required: [type, to]
+      description: Server-to-server presence update for one or more users
+      properties:
+        type:
+          type: string
+          enum: [status, location]
+          description: Type of presence update
+        to:
+          type: array
+          items:
+            type: integer
+          description: Target user numeric IDs
+        status:
+          type: string
+          enum: [invisible, join_me_all, join_me_friend, online, idle, dnd]
+          description: New status (when type is "status")
+        message:
+          type: string
+          maxLength: 128
+          description: Status message (when type is "status")
+        mode:
+          type: string
+          enum: [join, leave]
+          description: Join or leave event (when type is "location")
+        instance:
+          type: string
+          description: Instance identifier (when type is "location")
+        world:
+          type: string
+          description: World identifier (when type is "location")
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token authentication for user sessions
+
+    IntegrityAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: |-
+        Integrity token for server-to-server authentication.
+        Format: `Integrity <token>`

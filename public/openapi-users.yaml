@@ -1,0 +1,1392 @@
+openapi: 3.1.3
+
+info:
+  title: Nox Users API
+  version: 0.0.1
+  contact:
+    name: Nox Team
+    url: https://github.com/AtelierVR
+  license:
+    name: AGPL-3.0
+    url: https://www.gnu.org/licenses/agpl-3.0.en.html
+  description: |-
+    User management, profile operations, and session management for the Nox platform.
+    Includes user search, profile CRUD, image uploads, session listing, and public data access.
+
+servers:
+  - url: https://nox.hactazia.fr/api
+    description: Production server
+
+tags:
+  - name: users
+    description: User management and profile operations
+  - name: sessions
+    description: Session management
+
+paths:
+  /users:
+    get:
+      operationId: searchUsers
+      tags:
+        - users
+      summary: Search users
+      description: |-
+        Search for users by query string or specific user IDs. Supports pagination.
+        If authenticated with Bearer, the response includes relationship (follow) information.
+      parameters:
+        - name: query
+          in: query
+          required: false
+          description: Text query to search for in usernames and display names
+          schema:
+            type: string
+            example: "hact"
+        - name: id
+          in: query
+          required: false
+          description: Specific user ID or identifier to search for (can be repeated)
+          schema:
+            oneOf:
+              - type: array
+                items:
+                  type: string
+              - type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Users search completed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/UserSearchResult"
+
+  /users/@me:
+    get:
+      operationId: fetchCurrentUser
+      tags:
+        - users
+      summary: Get current user
+      description: |-
+        Retrieve the authenticated user's full profile including email, 2FA status, and creation date.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/UserMe"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserNotFound"
+
+    post:
+      operationId: updateCurrentUser
+      tags:
+        - users
+      summary: Update current user
+      description: |-
+        Update the authenticated user's profile. Some sensitive changes (username, email, password)
+        require 2FA verification. If 2FA is required, the API responds with **428 VerificationRequired**
+        containing the available verification methods. Submit again with `factor_code` to proceed.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserMe"
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/UserMe"
+        "400":
+          description: Invalid field values
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidField"
+        "401":
+          description: Not authenticated or not authorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "403":
+          description: Not authorized to update
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "409":
+          description: Username or email already taken
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlreadyExists"
+        "428":
+          description: 2FA verification required for sensitive changes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationRequired"
+
+  /users/{search}:
+    get:
+      operationId: fetchUser
+      tags:
+        - users
+      summary: Get user by ID or username
+      description: |-
+        Retrieve a user by numeric ID or username. For remote (federated) users, provide
+        `username@server` format. If the `fp` query parameter is provided, it must match
+        the user's TOTP fingerprint or the user will be treated as not found.
+        If authenticated with Bearer, the response includes relationship information.
+      parameters:
+        - name: search
+          in: path
+          required: true
+          description: "User ID (integer), username, or federated identifier (username@server)"
+          schema:
+            type: string
+        - name: fp
+          in: query
+          required: false
+          description: TOTP fingerprint for matching
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User found
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/User"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserNotFound"
+
+  /users/@me/thumbnail:
+    get:
+      operationId: fetchCurrentUserThumbnail
+      tags:
+        - users
+      summary: Get current user's thumbnail
+      description: |-
+        Returns the authenticated user's profile picture directly as image data,
+        or redirects (302) to an external URL if the thumbnail is remote.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Thumbnail image
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                example: "image/png"
+            Content-Disposition:
+              schema:
+                type: string
+                example: "inline; filename=thumbnail-123.png"
+            X-File-Hash:
+              schema:
+                type: string
+                example: "30767347fcb5e38b967f622324383b88bdedf2081d7b1f1557717f178d74d171"
+        "302":
+          description: Redirect to external thumbnail URL
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404":
+          description: User or thumbnail not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+    post:
+      operationId: updateCurrentUserThumbnail
+      tags:
+        - users
+      summary: Upload current user's thumbnail
+      description: |-
+        Upload a new profile picture for the authenticated user. Accepted formats: `image/png`,
+        `image/jpeg`, `image/gif`. Optionally include `x-file-hash` header with the SHA-256
+        hash of the file for integrity verification. On success, behaves like `GET` — returns the new image.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: x-file-hash
+          in: header
+          required: false
+          description: SHA-256 hex hash of the file for integrity check
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Image file (PNG, JPEG, or GIF)
+      responses:
+        "200":
+          description: Thumbnail updated — response is the new image
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Invalid file or MIME type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidField"
+        "401":
+          description: Not authenticated or not authorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  /users/{search}/thumbnail:
+    get:
+      operationId: fetchUserThumbnail
+      tags:
+        - users
+      summary: Get user thumbnail
+      description: |-
+        Returns a user's profile picture as image data, or redirects to an external URL.
+      parameters:
+        - name: search
+          in: path
+          required: true
+          description: User ID or username
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Thumbnail image
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Type:
+              schema:
+                type: string
+            X-File-Hash:
+              schema:
+                type: string
+        "302":
+          description: Redirect to external thumbnail URL
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        "404":
+          description: User or thumbnail not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  /users/@me/banner:
+    get:
+      operationId: fetchCurrentUserBanner
+      tags:
+        - users
+      summary: Get current user's banner
+      description: |-
+        Returns the authenticated user's banner image directly, or redirects to an external URL.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Banner image
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                example: "image/png"
+            Content-Disposition:
+              schema:
+                type: string
+                example: "inline; filename=banner-123.png"
+            X-File-Hash:
+              schema:
+                type: string
+        "302":
+          description: Redirect to external banner URL
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404":
+          description: Banner not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+    post:
+      operationId: updateCurrentUserBanner
+      tags:
+        - users
+      summary: Upload current user's banner
+      description: |-
+        Upload a new banner image for the authenticated user. Accepted formats: `image/png`,
+        `image/jpeg`, `image/gif`. On success, behaves like `GET` — returns the new image.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: x-file-hash
+          in: header
+          required: false
+          description: SHA-256 hex hash of the file for integrity check
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Image file (PNG, JPEG, or GIF)
+      responses:
+        "200":
+          description: Banner updated — response is the new image
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Invalid file or MIME type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidField"
+        "401":
+          description: Not authenticated or not authorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  /users/{search}/banner:
+    get:
+      operationId: fetchUserBanner
+      tags:
+        - users
+      summary: Get user banner
+      description: |-
+        Returns a user's banner image directly, or redirects to an external URL.
+      parameters:
+        - name: search
+          in: path
+          required: true
+          description: User ID or username
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Banner image
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+          headers:
+            X-File-Hash:
+              schema:
+                type: string
+        "302":
+          description: Redirect to external banner URL
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        "404":
+          description: User or banner not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  /users/@me/public/{type}:
+    get:
+      operationId: fetchCurrentUserPublicElement
+      tags:
+        - users
+      summary: Get current user's public data element
+      description: |-
+        Retrieve a public data element stored under the authenticated user's `public.{type}` table key.
+        The response Content-Type matches the stored MIME type of the element.
+        If the `Accept` header is provided and doesn't match the stored MIME type (and is not `*/*`),
+        the server responds with **406 Not Acceptable**.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: type
+          in: path
+          required: true
+          description: Public element type identifier (maps to `public.{type}` table key)
+          schema:
+            type: string
+            example: "profile_card"
+      responses:
+        "200":
+          description: Public element data
+          content:
+            "*/*":
+              schema:
+                description: Raw stored value with its original MIME type
+          headers:
+            Content-Type:
+              description: Stored MIME type of the element
+              schema:
+                type: string
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404":
+          description: Element not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+        "406":
+          description: MIME type not acceptable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /users/{search}/public/{type}:
+    get:
+      operationId: fetchUserPublicElement
+      tags:
+        - users
+      summary: Get user's public data element
+      description: |-
+        Retrieve a public data element stored under any user's `public.{type}` table key.
+        No authentication required. The response Content-Type matches the stored MIME type.
+      parameters:
+        - name: search
+          in: path
+          required: true
+          description: User ID or username
+          schema:
+            type: string
+        - name: type
+          in: path
+          required: true
+          description: Public element type identifier
+          schema:
+            type: string
+            example: "profile_card"
+      responses:
+        "200":
+          description: Public element data
+          content:
+            "*/*":
+              schema:
+                description: Raw stored value with its original MIME type
+          headers:
+            Content-Type:
+              description: Stored MIME type of the element
+              schema:
+                type: string
+        "404":
+          description: User or element not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+        "406":
+          description: MIME type not acceptable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /users/@me/session:
+    get:
+      operationId: fetchCurrentSession
+      tags:
+        - sessions
+      summary: Get current session
+      description: |-
+        Retrieve the current active session with device information.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Current session
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SessionDetail"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionNotFound"
+
+  /users/@me/sessions:
+    get:
+      operationId: fetchCurrentUserSessions
+      tags:
+        - sessions
+      summary: List all sessions
+      description: |-
+        Retrieve all sessions for the authenticated user with device information.
+        Maximum 10 sessions per page.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 10
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Session list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SessionListResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+    delete:
+      operationId: deleteAllSessions
+      tags:
+        - sessions
+      summary: Delete all sessions
+      description: |-
+        Delete all sessions for the authenticated user (signs out all devices).
+        Returns `logout: true` confirming all sessions were terminated.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: All sessions deleted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          logout:
+                            type: boolean
+                            example: true
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  /users/@me/sessions/{id}:
+    get:
+      operationId: fetchSession
+      tags:
+        - sessions
+      summary: Get session by ID
+      description: |-
+        Retrieve a specific session by its ID. Only accessible by the session owner.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SessionDetail"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionNotFound"
+
+    delete:
+      operationId: deleteSession
+      tags:
+        - sessions
+      summary: Delete session
+      description: |-
+        Delete a specific session. Returns `logout: true` if the deleted session was the current one.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session deleted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          logout:
+                            type: boolean
+                            description: True if the deleted session was the current one
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionNotFound"
+
+components:
+  schemas:
+    Response:
+      type: object
+      properties:
+        data:
+          description: The main response data
+        request:
+          type: string
+          description: Original request path
+          example: "/api/users"
+        time:
+          type: integer
+          format: int64
+          description: Response timestamp in milliseconds
+          example: 1750945093437
+      required:
+        - request
+        - time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+            code:
+              type: integer
+            status:
+              type: integer
+          required:
+            - message
+            - code
+            - status
+        request:
+          type: string
+        time:
+          type: integer
+          format: int64
+
+    NotLogged:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  example: "You are not logged in."
+                code:
+                  example: 7
+                status:
+                  example: 401
+
+    UnAuthorized:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  example: "You are not authorized to perform this action."
+                code:
+                  example: 8
+                status:
+                  example: 403
+
+    NotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  example: "Resource not found."
+                code:
+                  example: 3
+                status:
+                  example: 404
+
+    UserNotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  example: "User not found."
+                code:
+                  example: 2
+                status:
+                  example: 404
+
+    SessionNotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  example: "Session not found."
+                code:
+                  example: 6
+                status:
+                  example: 404
+
+    InvalidField:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  example: "Invalid field value."
+                code:
+                  example: 5
+                status:
+                  example: 400
+
+    AlreadyExists:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  example: "Resource already exists."
+                code:
+                  example: 4
+                status:
+                  example: 409
+
+    VerificationRequired:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  example: "Verification required."
+                code:
+                  example: 11
+                status:
+                  example: 428
+            data:
+              type: object
+              properties:
+                methods:
+                  type: array
+                  items:
+                    type: string
+                  description: Available verification methods
+                  example: ["totp", "email"]
+
+    UserLink:
+      type: object
+      description: A user social/profile link with label and URL
+      properties:
+        label:
+          type: string
+          description: Display label for the link
+          example: "GitHub"
+        value:
+          type: string
+          format: uri
+          description: The URL
+          example: "https://github.com/hactazia"
+      required:
+        - label
+        - value
+
+    UserRelations:
+      type: object
+      nullable: true
+      description: Relationship information between users
+      properties:
+        out:
+          type: string
+          nullable: true
+          description: Outgoing relationship from requesting user to this user (e.g. `following`)
+          example: "following"
+        in:
+          type: string
+          nullable: true
+          description: Incoming relationship from this user to requesting user
+          example: null
+
+    UserPresence:
+      type: object
+      nullable: true
+      description: User presence/availability status
+      properties:
+        status:
+          type: string
+          enum:
+            - invisible
+            - join_me_all
+            - join_me_friend
+            - online
+            - idle
+            - dnd
+          description: Presence status code
+        text:
+          type: string
+          nullable: true
+          description: Optional custom status text
+
+    UserAlias:
+      type: object
+      description: A cross-server alias entry
+      properties:
+        id:
+          type: integer
+          description: Alias record ID
+        server:
+          type: string
+          description: Server hosting the alias
+
+    User:
+      type: object
+      description: Public user profile
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: Unique user ID
+          example: 123
+        username:
+          type: string
+          pattern: "^[a-z0-9_.-]{3,16}$"
+          description: Unique username
+          example: "hactazia"
+        display:
+          type: string
+          description: Display name
+          example: "Hactazia"
+        server:
+          type: string
+          description: Server address the user is registered on
+          example: "hactazia.fr"
+        tags:
+          type: array
+          items:
+            type: string
+          description: User permission/role tags
+          example: ["sys:admin", "dft:can_world_create"]
+        bio:
+          type: string
+          nullable: true
+          maxLength: 512
+          description: User bio
+        thumbnail:
+          type: string
+          nullable: true
+          format: uri
+          description: Profile picture URL
+        banner:
+          type: string
+          nullable: true
+          format: uri
+          description: Banner image URL
+        links:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserLink"
+          description: User profile links
+        rank:
+          type: integer
+          minimum: 0
+          maximum: 1
+          description: User rank (0 = unverified, 1 = verified)
+          example: 0
+        pronoun:
+          type: string
+          nullable: true
+          description: User's preferred pronoun
+          example: "they/them"
+        certificate:
+          type: string
+          description: Server certificate in compact format
+          example: "hactazia@hactazia.fr"
+        followers:
+          type: integer
+          minimum: 0
+          description: Follower count
+        following:
+          type: integer
+          minimum: 0
+          description: Following count
+        presence:
+          $ref: "#/components/schemas/UserPresence"
+        alias:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserAlias"
+          description: Cross-server alias references
+        relations:
+          $ref: "#/components/schemas/UserRelations"
+      required:
+        - id
+        - username
+        - display
+        - server
+        - tags
+        - bio
+        - thumbnail
+        - banner
+        - links
+        - rank
+        - pronoun
+        - certificate
+        - followers
+        - following
+        - presence
+        - alias
+        - relations
+
+    UserMe:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          description: Extended profile for the authenticated user
+          properties:
+            email:
+              type: string
+              nullable: true
+              format: email
+              description: Email address
+              example: "hactazia@example.com"
+            email_verified:
+              type: boolean
+              description: Whether email has been verified
+              example: false
+            created_at:
+              type: integer
+              format: int64
+              description: Account creation timestamp (ms)
+              example: 1750936113726
+            home:
+              type: string
+              nullable: true
+              description: Home world reference (world_id@server)
+              example: "world123@hactazia.fr"
+            avatar:
+              type: string
+              nullable: true
+              description: Current avatar reference (avatar_id@server)
+              example: "avatar123@hactazia.fr"
+            twofa_enabled:
+              type: boolean
+              description: Whether 2FA is enabled
+              example: false
+            relations:
+              type: "null"
+              description: Always null for the current user
+          required:
+            - email
+            - email_verified
+            - created_at
+            - home
+            - avatar
+            - twofa_enabled
+            - relations
+
+    UserSearchResult:
+      type: object
+      description: Paginated user search result
+      properties:
+        total:
+          type: integer
+          minimum: 0
+          description: Total matching users
+        query:
+          type: string
+          nullable: true
+          description: Search query used
+        limit:
+          type: integer
+        offset:
+          type: integer
+        ids:
+          type: array
+          items:
+            type: string
+          description: Searched identifiers
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+      required:
+        - total
+        - query
+        - limit
+        - offset
+        - ids
+        - users
+
+    UpdateUserMe:
+      type: object
+      description: Request body to update the current user's profile
+      properties:
+        username:
+          type: string
+          nullable: true
+          pattern: "^[a-z0-9_.-]{3,16}$"
+          description: New username (sensitive — requires 2FA)
+        display:
+          type: string
+          nullable: true
+          pattern: "^.{3,32}$"
+          description: New display name
+        email:
+          type: string
+          nullable: true
+          format: email
+          maxLength: 320
+          description: New email address (sensitive — triggers re-verification)
+        password:
+          type: string
+          nullable: true
+          minLength: 6
+          maxLength: 128
+          description: New password (requires `current_password`)
+        current_password:
+          type: string
+          nullable: true
+          description: Current password (required when changing password)
+        bio:
+          type: string
+          nullable: true
+          maxLength: 512
+          description: Biography text
+        pronoun:
+          type: string
+          nullable: true
+          description: Preferred pronoun
+          example: "they/them"
+        thumbnail:
+          type: string
+          nullable: true
+          format: uri
+          maxLength: 2048
+          description: External thumbnail URL
+        banner:
+          type: string
+          nullable: true
+          format: uri
+          maxLength: 2048
+          description: External banner URL
+        links:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/UserLink"
+          maxItems: 10
+          description: Profile links
+        home:
+          type: string
+          nullable: true
+          description: Home world reference (world_id[@server])
+        avatar:
+          type: string
+          nullable: true
+          description: Current avatar reference (avatar_id[@server])
+        tags:
+          type: array
+          nullable: true
+          items:
+            type: string
+            pattern: "^usr:[a-z0-9_]+$"
+          description: User-defined tags (only `usr:*` prefix allowed)
+        presence:
+          type: string
+          nullable: true
+          enum:
+            - invisible
+            - join_me_all
+            - join_me_friend
+            - online
+            - idle
+            - dnd
+          description: Presence status
+        presence_status:
+          type: string
+          nullable: true
+          maxLength: 128
+          description: Custom presence status text
+        factor_code:
+          type: string
+          nullable: true
+          description: 2FA verification code (required for sensitive changes when prompted)
+      additionalProperties: false
+
+    SessionDetail:
+      type: object
+      description: Session information with device list
+      properties:
+        id:
+          type: string
+          description: Session ID (UUID)
+          example: "a1b2c3d4-..."
+        current:
+          type: boolean
+          description: Whether this is the currently active session
+        expires_at:
+          type: integer
+          format: int64
+          description: Expiration timestamp (ms)
+        created_at:
+          type: integer
+          format: int64
+          description: Creation timestamp (ms)
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeviceInfo"
+      required:
+        - id
+        - current
+        - expires_at
+        - created_at
+        - devices
+
+    DeviceInfo:
+      type: object
+      description: Device/IP associated with a session
+      properties:
+        ip:
+          type: string
+          description: IP address
+          example: "192.168.1.1"
+        user_agent:
+          type: string
+          description: User-Agent string
+          example: "Mozilla/5.0 ..."
+        last_seen:
+          type: integer
+          format: int64
+          description: Last activity timestamp (ms)
+      required:
+        - ip
+        - user_agent
+        - last_seen
+
+    SessionListResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of sessions
+        limit:
+          type: integer
+        offset:
+          type: integer
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionDetail"
+      required:
+        - total
+        - limit
+        - offset
+        - sessions
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token obtained from login or register

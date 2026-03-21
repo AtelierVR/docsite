@@ -1,0 +1,407 @@
+openapi: 3.1.3
+
+info:
+  title: Nox Instances API
+  version: 0.0.1
+  contact:
+    name: Nox Team
+    url: https://github.com/AtelierVR
+  license:
+    name: AGPL-3.0
+    url: https://www.gnu.org/licenses/agpl-3.0.en.html
+  description: |-
+    API endpoints for instance management in Nox.
+    Instances are active sessions of a world running on a relay server.
+
+servers:
+  - url: https://nox.hactazia.fr/api
+    description: Production server
+
+tags:
+  - name: instances
+    description: Instance management
+
+paths:
+  /instances:
+    get:
+      operationId: searchInstances
+      tags: [instances]
+      summary: Search instances
+      description: |-
+        Search for active instances. Can filter by world, owner, or free-text query.
+        Returns only publicly visible instances unless the user is authenticated.
+      parameters:
+        - name: query
+          in: query
+          required: false
+          description: Text query to search instance titles
+          schema:
+            type: string
+        - name: world
+          in: query
+          required: false
+          description: World identifier to filter by (e.g., "10@nox.hactazia.fr")
+          schema:
+            type: string
+        - name: owner
+          in: query
+          required: false
+          description: Owner identifier to filter by (e.g., "1@nox.hactazia.fr")
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Instance search results
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/InstanceSearchResult"
+                    required: [data]
+    put:
+      operationId: createInstance
+      tags: [instances]
+      summary: Create instance
+      description: |-
+        Create a new world instance. The instance will be assigned to an available relay server.
+        Password-protected or whitelist-only instances restrict joining.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInstanceRequest"
+      responses:
+        "200":
+          description: Instance created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Instance"
+                    required: [data]
+        "400":
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidField"
+        "401":
+          description: Not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404":
+          description: User or world not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  /instances/{search}:
+    get:
+      operationId: fetchInstance
+      tags: [instances]
+      summary: Get instance
+      description: |-
+        Retrieve an instance by its numeric ID or unique name.
+        Use a `#` prefix to search by name (e.g., `#my-instance`).
+      parameters:
+        - name: search
+          in: path
+          required: true
+          description: Instance numeric ID, or name prefixed with `#` (e.g., `#my-instance`)
+          schema:
+            type: string
+          examples:
+            byId:
+              value: "42"
+              summary: Search by numeric ID
+            byName:
+              value: "#my-instance"
+              summary: Search by name
+      responses:
+        "200":
+          description: Instance retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Instance"
+                    required: [data]
+        "404":
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+components:
+  schemas:
+    Response:
+      type: object
+      properties:
+        data:
+          type: object
+        request:
+          type: string
+          example: "/api/instances"
+        time:
+          type: integer
+          format: int64
+          example: 1750945093437
+      required: [data, request, time]
+
+    Error:
+      type: object
+      properties:
+        data:
+          type: "null"
+        request:
+          type: string
+        time:
+          type: integer
+        error:
+          type: object
+          required: [message, code, status]
+          properties:
+            message:
+              type: string
+            code:
+              type: integer
+            status:
+              type: integer
+
+    NotLogged:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              properties:
+                message: {example: "You are not logged in."}
+                code: {example: 7}
+                status: {example: 401}
+
+    NotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              properties:
+                message: {example: "Resource not found."}
+                code: {example: 3}
+                status: {example: 404}
+
+    InvalidField:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              properties:
+                message: {example: "Invalid field: {0}, {1}."}
+                code: {example: 5}
+                status: {example: 400}
+
+    Instance:
+      type: object
+      description: An active world instance running on a relay server
+      properties:
+        id:
+          type: integer
+          description: Numeric instance ID
+          example: 42
+        server:
+          type: string
+          description: Server address where this instance is registered
+          example: "nox.hactazia.fr"
+        name:
+          type: string
+          description: Unique human-readable instance name (auto-generated if not specified)
+          example: "my-instance-abc123"
+        title:
+          type: string
+          nullable: true
+          description: Instance display title
+          example: "My Instance"
+        description:
+          type: string
+          nullable: true
+          description: Instance description
+        thumbnail:
+          type: string
+          nullable: true
+          format: uri
+          description: Instance thumbnail URL
+        capacity:
+          type: integer
+          description: Maximum number of players
+          example: 20
+        owner:
+          type: string
+          description: Owner identifier (user@server)
+          example: "1@nox.hactazia.fr"
+        tags:
+          type: array
+          items:
+            type: string
+          description: Instance tags
+        world:
+          type: string
+          description: World identifier this instance is based on (world_id@server)
+          example: "10@nox.hactazia.fr"
+        connection:
+          type: object
+          nullable: true
+          description: Connection data for joining the instance (null if not available to requester)
+          properties:
+            method:
+              type: string
+              description: Connection method (e.g., "relay")
+              example: "relay"
+            data:
+              type: string
+              description: Base64-encoded connection parameters
+        client_count:
+          type: integer
+          description: Current number of connected clients
+          example: 5
+        players:
+          type: array
+          description: Current player list
+          items:
+            type: object
+            properties:
+              user:
+                type: string
+                nullable: true
+                description: Player user identifier (null if anonymous)
+              display:
+                type: string
+                description: Player display name
+        alias:
+          type: array
+          description: Federated aliases for this instance
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              server:
+                type: string
+      required: [id, server, name, title, description, thumbnail, capacity, owner, tags, world, connection, client_count, players]
+
+    InstanceSearchResult:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of matching instances
+        query:
+          type: string
+          nullable: true
+          description: Text query used
+        world:
+          type: string
+          nullable: true
+          description: World filter used
+        owner:
+          type: string
+          nullable: true
+          description: Owner filter used
+        limit:
+          type: integer
+        offset:
+          type: integer
+        instances:
+          type: array
+          items:
+            $ref: "#/components/schemas/Instance"
+      required: [total, query, world, owner, limit, offset, instances]
+
+    CreateInstanceRequest:
+      type: object
+      required: [world, capacity, expose]
+      properties:
+        name:
+          type: string
+          description: Optional custom instance name (auto-generated if omitted)
+        title:
+          type: string
+          description: Instance display title
+        description:
+          type: string
+          description: Instance description
+        thumbnail:
+          type: string
+          format: uri
+          description: Instance thumbnail URL
+        world:
+          type: string
+          description: World identifier (world_id@server or just world_id for local)
+          example: "10@nox.hactazia.fr"
+        capacity:
+          type: integer
+          description: Maximum number of players
+          example: 20
+        expose:
+          type: string
+          enum: [public, private]
+          description: Whether the instance is publicly visible
+          example: "public"
+        use_password:
+          type: boolean
+          default: false
+          description: Whether to password-protect the instance
+        password:
+          type: string
+          description: Password to join (required when use_password is true)
+        use_whitelist:
+          type: boolean
+          default: false
+          description: Whether to restrict joining to a whitelist
+        whitelist:
+          type: array
+          items:
+            type: string
+          description: Whitelisted user identifiers (required when use_whitelist is true)
+      example:
+        world: "10@nox.hactazia.fr"
+        capacity: 20
+        expose: "public"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token authentication for user sessions

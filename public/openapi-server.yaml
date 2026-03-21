@@ -1,0 +1,1066 @@
+openapi: 3.1.3
+
+info:
+  title: Nox Server API
+  version: 0.0.1
+  contact:
+    name: Nox Team
+    url: https://github.com/AtelierVR
+  license:
+    name: AGPL-3.0
+    url: https://www.gnu.org/licenses/agpl-3.0.en.html
+  description: |-
+    Server management, TOTP (two-factor authentication), and email verification
+    endpoints for the Nox platform.
+
+servers:
+  - url: https://nox.hactazia.fr/api
+    description: Production server
+
+tags:
+  - name: server
+    description: Server information and configuration
+  - name: auth
+    description: Two-factor authentication (TOTP)
+  - name: email
+    description: Email verification
+
+paths:
+  /.well-known/nox:
+    get:
+      operationId: fetchWellKnown
+      tags:
+        - server
+      summary: Well-known discovery
+      description: |-
+        Returns discovery metadata for the Nox instance — including address, port,
+        endpoints, version info, and status. This endpoint uses a **raw** (unwrapped)
+        response — there is no `{ data, request, time }` envelope.
+        Unauthenticated. Used for federation and client auto-discovery.
+      responses:
+        "200":
+          description: Well-known discovery metadata (raw, not wrapped)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WellKnownResponse"
+
+  /server:
+    get:
+      operationId: fetchServerInfo
+      tags:
+        - server
+      summary: Server info and statistics
+      description: |-
+        Returns public-facing server information: id, title, description, address,
+        gateway URLs, enabled features, version, icon, certificate, and live statistics.
+        Does not require authentication.
+      responses:
+        "200":
+          description: Server information
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ServerInfo"
+
+  /server/logs:
+    get:
+      operationId: fetchServerLogs
+      tags:
+        - server
+      summary: Server logs (admin only)
+      description: |-
+        Retrieve server-side log output. Supports pagination with `limit` and `after`
+        query parameters. Requires administrator privileges.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: after
+          in: query
+          required: false
+          description: Return only logs with index after this value (for pagination)
+          schema:
+            type: integer
+            minimum: 0
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 500
+      responses:
+        "200":
+          description: Server logs
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          logs:
+                            type: array
+                            items:
+                              $ref: "#/components/schemas/ServerLog"
+                          total:
+                            type: integer
+                            description: Total number of log entries available
+                        required:
+                          - logs
+                          - total
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "403":
+          description: Admin privileges required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+
+  /server/configs:
+    get:
+      operationId: fetchServerConfigs
+      tags:
+        - server
+      summary: Get server configuration (admin only)
+      description: |-
+        Retrieve all server configuration entries as an array. Each entry includes
+        the current value, its source (default/environment/override), and descriptions.
+        Requires administrator privileges.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Server configuration entries
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ServerConfigEntry"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "403":
+          description: Admin privileges required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+
+    patch:
+      operationId: updateServerConfigs
+      tags:
+        - server
+      summary: Update server configuration (admin only)
+      description: |-
+        Update one or more server configuration values. The request body is an **array**
+        of `{ key, value }` pairs. Set `value` to `null` to reset a key to its default.
+        Returns the result for each key indicating success or error.
+        Requires administrator privileges.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                required:
+                  - key
+                  - value
+                properties:
+                  key:
+                    type: string
+                    description: Configuration key to update
+                    example: "server.title"
+                  value:
+                    type:
+                      - string
+                      - "null"
+                    description: New value, or null to reset to default
+                    example: "My Nox Server"
+      responses:
+        "200":
+          description: Configuration update results
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          results:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                key:
+                                  type: string
+                                  description: Configuration key
+                                ok:
+                                  type: boolean
+                                  description: Whether the update succeeded
+                                error:
+                                  type: string
+                                  description: Error message if ok is false
+                              required:
+                                - key
+                                - ok
+                        required:
+                          - results
+        "400":
+          description: Invalid configuration values
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "403":
+          description: Admin privileges required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+
+  /auth/totp/setup:
+    post:
+      operationId: setupTotp
+      tags:
+        - auth
+      summary: Setup TOTP
+      description: |-
+        Generates a TOTP secret and QR code URL for the authenticated user.
+        Returns backup codes along with the setup data. The user should scan the QR code
+        in an authenticator app, then call `enableTotp` with both the `secret` and a
+        valid `token` to activate 2FA. Does not enable 2FA immediately.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: TOTP setup data
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TotpSetupResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  /auth/totp/enable:
+    post:
+      operationId: enableTotp
+      tags:
+        - auth
+      summary: Enable TOTP
+      description: |-
+        Enables two-factor authentication for the authenticated user.
+        Requires both the TOTP `secret` (from setup) and a current `token` from
+        the authenticator app to confirm setup is working correctly.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - secret
+                - token
+              properties:
+                secret:
+                  type: string
+                  description: TOTP secret returned by the setup endpoint
+                  example: "JBSWY3DPEHPK3PXP"
+                token:
+                  type: string
+                  description: 6-digit TOTP code from the authenticator app
+                  pattern: "^[0-9]{6}$"
+                  example: "123456"
+      responses:
+        "200":
+          description: 2FA enabled
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          enabled:
+                            type: boolean
+                            example: true
+                          message:
+                            type: string
+                            example: "Two-factor authentication enabled."
+                        required:
+                          - enabled
+                          - message
+        "400":
+          description: Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  /auth/totp/disable:
+    post:
+      operationId: disableTotp
+      tags:
+        - auth
+      summary: Disable TOTP
+      description: |-
+        Disables two-factor authentication for the authenticated user.
+        Optionally provide a `factor_code` (TOTP code or backup code) to confirm.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                factor_code:
+                  type: string
+                  nullable: true
+                  description: Optional TOTP or backup code for confirmation
+                  example: "123456"
+      responses:
+        "200":
+          description: 2FA disabled
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          disabled:
+                            type: boolean
+                            example: true
+                          message:
+                            type: string
+                            example: "Two-factor authentication disabled."
+                        required:
+                          - disabled
+                          - message
+        "400":
+          description: Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  /auth/totp/verify:
+    post:
+      operationId: verifyTotp
+      tags:
+        - auth
+      summary: Verify TOTP token
+      description: |-
+        Verify a TOTP code during login when 2FA is required.
+        Called after the initial login succeeds but 2FA verification is pending.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TotpTokenRequest"
+      responses:
+        "200":
+          description: TOTP verified
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          verified:
+                            type: boolean
+                            example: true
+                          message:
+                            type: string
+                            example: "Token verified."
+                        required:
+                          - verified
+                          - message
+        "400":
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  /email/confirmation:
+    get:
+      operationId: confirmEmail
+      tags:
+        - email
+      summary: Confirm email address
+      description: |-
+        Validates an email confirmation token (received via email link).
+        The `token` query parameter is the signed token embedded in the confirmation email.
+      parameters:
+        - name: token
+          in: query
+          required: true
+          description: Email confirmation token from the verification email
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Email confirmed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          success:
+                            type: boolean
+                            example: true
+                          message:
+                            type: string
+                            example: "Email confirmed."
+                          verified:
+                            type: boolean
+                            example: true
+                        required:
+                          - success
+                          - message
+                          - verified
+        "400":
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidBody"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  /email/resend:
+    post:
+      operationId: resendEmailConfirmation
+      tags:
+        - email
+      summary: Resend verification email
+      description: |-
+        Resends the email confirmation message to the authenticated user's
+        registered email address. The user must be logged in.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Email sent
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          success:
+                            type: boolean
+                            example: true
+                          message:
+                            type: string
+                            example: "Verification email sent."
+                        required:
+                          - success
+                          - message
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  /admin/email/test:
+    post:
+      operationId: testEmail
+      tags:
+        - email
+      summary: Test email sending (admin only)
+      description: |-
+        Sends a test email to verify that the SMTP configuration is working correctly.
+        Supports custom templates, variables, subject, and body overrides.
+        Requires administrator privileges.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - to
+              properties:
+                to:
+                  type: string
+                  format: email
+                  description: Recipient email address
+                  example: "test@example.com"
+                template:
+                  type: string
+                  nullable: true
+                  description: Email template name to use
+                  example: "confirmation"
+                variables:
+                  type: object
+                  nullable: true
+                  description: Template variable substitutions
+                  additionalProperties: true
+                  example:
+                    username: "testuser"
+                subject:
+                  type: string
+                  nullable: true
+                  description: Override the email subject
+                  example: "Test email"
+                html:
+                  type: string
+                  nullable: true
+                  description: Override the HTML body
+                text:
+                  type: string
+                  nullable: true
+                  description: Override the plain text body
+      responses:
+        "200":
+          description: Test email sent
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          success:
+                            type: boolean
+                            example: true
+                          message:
+                            type: string
+                            example: "Test email sent."
+                        required:
+                          - success
+                          - message
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "403":
+          description: Admin privileges required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+
+components:
+  schemas:
+    Response:
+      type: object
+      properties:
+        data:
+          description: The main response data
+        request:
+          type: string
+          description: Original request path
+          example: "/api/"
+        time:
+          type: integer
+          format: int64
+          description: Response timestamp in milliseconds
+          example: 1750945093437
+      required:
+        - request
+        - time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+            code:
+              type: integer
+            status:
+              type: integer
+          required:
+            - message
+            - code
+            - status
+        request:
+          type: string
+        time:
+          type: integer
+          format: int64
+
+    NotLogged:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  example: "You are not logged in."
+                code:
+                  example: 7
+                status:
+                  example: 401
+
+    UnAuthorized:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  example: "You are not authorized to perform this action."
+                code:
+                  example: 8
+                status:
+                  example: 403
+
+    NotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  example: "Resource not found."
+                code:
+                  example: 3
+                status:
+                  example: 404
+
+    InvalidBody:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  example: "Invalid request body."
+                code:
+                  example: 5
+                status:
+                  example: 400
+
+    InternalError:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  example: "An internal error occurred."
+                code:
+                  example: 9
+                status:
+                  example: 500
+
+    WellKnownResponse:
+      type: object
+      description: |-
+        Well-known discovery response. This is returned **raw** (not wrapped in `{ data, request, time }`).
+      properties:
+        address:
+          type: string
+          description: Public server address
+          example: "nox.hactazia.fr"
+        contact:
+          type: string
+          nullable: true
+          description: Contact email or URL
+          example: "admin@hactazia.fr"
+        port:
+          type: integer
+          description: Server port
+          example: 443
+        endpoints:
+          type: object
+          description: Well-known endpoint URLs
+          properties:
+            wellknown:
+              type: string
+              description: URL of this well-known endpoint
+            server:
+              type: string
+              description: URL of the /api/server endpoint
+          required:
+            - wellknown
+            - server
+        versions:
+          type: object
+          description: Software version info
+          properties:
+            server:
+              type: string
+              description: Nox server version
+              example: "1.0.0"
+            node:
+              type: string
+              description: Node.js version
+              example: "22.0.0"
+          required:
+            - server
+            - node
+        status:
+          type: string
+          description: Server status string
+          example: "online"
+        security:
+          type: object
+          nullable: true
+          description: Security mode details, or null if no restriction
+          properties:
+            message:
+              type: string
+            features_disabled:
+              type: array
+              items:
+                type: string
+          required:
+            - message
+            - features_disabled
+        error_message:
+          type: string
+          nullable: true
+          description: Error message if status is degraded
+        maintenance:
+          type: object
+          nullable: true
+          description: Maintenance window, or null if not in maintenance
+          properties:
+            message:
+              type: string
+            start_at:
+              type: integer
+              nullable: true
+              format: int64
+              description: Maintenance start timestamp (ms), or null
+            end_at:
+              type: integer
+              nullable: true
+              format: int64
+              description: Maintenance end timestamp (ms), or null
+          required:
+            - message
+            - start_at
+            - end_at
+      required:
+        - address
+        - port
+        - endpoints
+        - versions
+        - status
+
+    ServerInfo:
+      type: object
+      description: Public server information with statistics
+      properties:
+        id:
+          type: string
+          description: Server unique identifier
+          example: "nox-main"
+        title:
+          type: string
+          description: Server display title
+          example: "Nox"
+        description:
+          type: string
+          nullable: true
+          description: Server description
+        address:
+          type: string
+          description: Server address
+          example: "nox.hactazia.fr"
+        gateways:
+          type: object
+          description: Gateway URLs for different connection protocols
+          properties:
+            http:
+              type: string
+              format: uri
+              description: HTTP API gateway URL
+            ws:
+              type: string
+              format: uri
+              description: WebSocket gateway URL
+            web:
+              type: string
+              format: uri
+              description: Web frontend URL
+        features:
+          type: array
+          items:
+            type: string
+          description: Enabled feature flags
+          example: ["registration", "federation"]
+        version:
+          type: string
+          description: Server software version
+          example: "1.0.0"
+        ready_at:
+          type: integer
+          format: int64
+          description: Server start timestamp (ms since epoch)
+        icon:
+          type: string
+          nullable: true
+          format: uri
+          description: Server icon URL
+        certificate:
+          type: string
+          nullable: true
+          description: Server certificate in compact format
+          example: "nox@hactazia.fr"
+        statistics:
+          type: object
+          description: Server live statistics
+          properties:
+            users:
+              type: integer
+              description: Total registered users
+            active_users:
+              type: integer
+              description: Users active recently
+            connected_users:
+              type: integer
+              description: Currently connected users
+            worlds:
+              type: integer
+              description: Total published worlds
+            avatars:
+              type: integer
+              description: Total published avatars
+            instances:
+              type: integer
+              description: Total world instances
+            live_instances:
+              type: integer
+              description: Currently active instances
+            live_clients:
+              type: integer
+              description: Clients currently connected to relay servers
+            live_players:
+              type: integer
+              description: Players currently in instances
+      required:
+        - id
+        - title
+        - address
+        - features
+        - version
+        - ready_at
+        - statistics
+
+    ServerLog:
+      type: object
+      description: A server log entry
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          description: Log entry time in milliseconds
+        level:
+          type: string
+          enum:
+            - log
+            - error
+            - warning
+            - debug
+          description: Log level
+          example: "log"
+        message:
+          type: string
+          description: Log message
+      required:
+        - timestamp
+        - level
+        - message
+
+    ServerConfigEntry:
+      type: object
+      description: A server configuration entry with metadata
+      properties:
+        key:
+          type: string
+          description: Configuration key identifier
+          example: "server.title"
+        label:
+          type: string
+          description: Human-readable label
+          example: "Server Title"
+        description:
+          type: string
+          nullable: true
+          description: Description of the configuration option
+        default:
+          type: string
+          description: Default value (as string)
+          example: "Nox"
+        environment:
+          type: string
+          nullable: true
+          description: Value from environment variable (if set)
+        override:
+          type: string
+          nullable: true
+          description: Manually overridden value (if set)
+        forced:
+          type: boolean
+          description: Whether this config is locked/forced and cannot be changed
+        risky:
+          type: boolean
+          description: Whether changing this config carries operational risk
+      required:
+        - key
+        - label
+        - default
+        - environment
+        - override
+        - forced
+        - risky
+
+    TotpSetupResponse:
+      type: object
+      description: TOTP setup data including secret, QR code URL, and backup codes
+      properties:
+        secret:
+          type: string
+          description: Base32-encoded TOTP secret (required for enableTotp)
+          example: "JBSWY3DPEHPK3PXP"
+        qrCodeUrl:
+          type: string
+          description: URL of the QR code image for scanning with an authenticator app
+          example: "https://nox.hactazia.fr/qr/JBSWY3DPEHPK3PXP"
+        backupCodes:
+          type: array
+          items:
+            type: string
+          description: One-time use backup codes for account recovery
+          example: ["abc123def456", "xyz789uvw012"]
+      required:
+        - secret
+        - qrCodeUrl
+        - backupCodes
+
+    TotpTokenRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: 6-digit TOTP code from the authenticator app
+          pattern: "^[0-9]{6}$"
+          example: "123456"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token authentication for user sessions

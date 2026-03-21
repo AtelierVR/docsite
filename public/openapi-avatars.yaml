@@ -1,0 +1,1003 @@
+openapi: 3.1.3
+
+info:
+  title: Nox Avatars API
+  version: 0.0.1
+  contact:
+    name: Nox Team
+    url: https://github.com/AtelierVR
+  license:
+    name: AGPL-3.0
+    url: https://www.gnu.org/licenses/agpl-3.0.en.html
+  description: |-
+    API endpoints for avatar management in Nox.
+    Supports avatar creation, updates, asset versioning, file uploads, and thumbnails.
+
+servers:
+  - url: https://nox.hactazia.fr/api
+    description: Production server
+
+tags:
+  - name: avatars
+    description: Avatar management, assets, and thumbnails
+
+paths:
+  /avatars:
+    get:
+      operationId: searchAvatars
+      tags: [avatars]
+      summary: Search avatars
+      description: |-
+        Search for avatars by text query or specific IDs. Supports pagination and tag filtering.
+        Returns public avatars visible to the requesting user.
+      parameters:
+        - name: query
+          in: query
+          required: false
+          description: Text query to search avatar titles and descriptions
+          schema:
+            type: string
+        - name: id
+          in: query
+          required: false
+          description: Avatar ID(s) to search for
+          schema:
+            oneOf:
+              - type: string
+              - type: array
+                items:
+                  type: string
+        - name: tags
+          in: query
+          required: false
+          description: Comma-separated tags to filter by
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Avatar search results
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AvatarSearchResult"
+                    required: [data]
+    put:
+      operationId: createAvatar
+      tags: [avatars]
+      summary: Create avatar
+      description: |-
+        Create a new avatar. The creator must have the `dft:can_avatar_create` permission tag.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAvatarRequest"
+      responses:
+        "200":
+          description: Avatar created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Avatar"
+                    required: [data]
+        "401":
+          description: Not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "403":
+          description: Not authorized to create avatars
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "409":
+          description: Avatar with this ID already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlreadyExists"
+
+  /avatars/{avatar_id}:
+    get:
+      operationId: fetchAvatar
+      tags: [avatars]
+      summary: Get avatar
+      description: Retrieve an avatar by its numeric ID or full identifier (id@server).
+      parameters:
+        - name: avatar_id
+          in: path
+          required: true
+          description: Avatar numeric ID or full identifier (e.g., "42" or "42@nox.hactazia.fr")
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Avatar retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Avatar"
+                    required: [data]
+        "404":
+          description: Avatar not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+    post:
+      operationId: updateAvatar
+      tags: [avatars]
+      summary: Update avatar
+      description: Update an existing avatar's metadata. Only the owner can update it.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: avatar_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAvatarRequest"
+      responses:
+        "200":
+          description: Avatar updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Avatar"
+                    required: [data]
+        "401":
+          description: Not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "403":
+          description: Not authorized to update this avatar
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "404":
+          description: Avatar not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+    delete:
+      operationId: deleteAvatar
+      tags: [avatars]
+      summary: Delete avatar
+      description: Delete an avatar. Only the owner or an admin can delete it.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: avatar_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Avatar deleted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          success:
+                            type: boolean
+        "401":
+          description: Not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "403":
+          description: Not authorized to delete this avatar
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "404":
+          description: Avatar not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  /avatars/{avatar_id}/thumbnail:
+    get:
+      operationId: fetchAvatarThumbnail
+      tags: [avatars]
+      summary: Get avatar thumbnail
+      description: |-
+        Retrieve the thumbnail image for an avatar. Returns the image binary if stored locally,
+        or a 301 redirect to the external URL if the thumbnail is remote.
+      parameters:
+        - name: avatar_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Thumbnail image
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                example: "image/png"
+            X-File-Hash:
+              schema:
+                type: string
+                description: SHA256 hash of the image
+            Content-Length:
+              schema:
+                type: integer
+        "301":
+          description: Redirect to external thumbnail URL
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        "404":
+          description: Avatar or thumbnail not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+    post:
+      operationId: uploadAvatarThumbnail
+      tags: [avatars]
+      summary: Upload avatar thumbnail
+      description: |-
+        Upload a square thumbnail image for an avatar. Only the owner can upload thumbnails.
+        Supported formats: PNG, JPEG, GIF.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: avatar_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Square image file (PNG, JPEG, or GIF)
+      responses:
+        "200":
+          description: Thumbnail uploaded. Response is the new thumbnail image.
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Invalid image format or not a square image
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidField"
+        "401":
+          description: Not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "403":
+          description: Not authorized to upload thumbnail for this avatar
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "404":
+          description: Avatar not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  /avatars/{avatar_id}/assets:
+    get:
+      operationId: fetchAvatarAssets
+      tags: [avatars]
+      summary: Get avatar assets
+      description: |-
+        Retrieve all assets for an avatar. Assets are versioned per engine/platform combination.
+        Can filter by version, engine, and platform.
+      parameters:
+        - name: avatar_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: query
+          description: Filter by version(s), comma-separated
+          schema:
+            type: string
+        - name: engine
+          in: query
+          description: Filter by engine(s), comma-separated (e.g., "unity,unreal")
+          schema:
+            type: string
+        - name: platform
+          in: query
+          description: Filter by platform(s), comma-separated (e.g., "windows,android")
+          schema:
+            type: string
+        - name: empty
+          in: query
+          description: Include assets that have no file uploaded yet
+          schema:
+            type: boolean
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Avatar assets
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AssetListResponse"
+                    required: [data]
+        "404":
+          description: Avatar not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+    put:
+      operationId: createAvatarAsset
+      tags: [avatars]
+      summary: Create avatar asset entry
+      description: |-
+        Create a new asset entry for an avatar (version/engine/platform combination).
+        After creating, upload the file using POST /avatars/{id}/assets/{asset_id}/file.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: avatar_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAssetRequest"
+      responses:
+        "200":
+          description: Asset entry created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AvatarAsset"
+                    required: [data]
+        "401":
+          description: Not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "403":
+          description: Not authorized to create assets for this avatar
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "404":
+          description: Avatar not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+        "409":
+          description: Asset already exists for this version/engine/platform
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlreadyExists"
+
+  /avatars/{avatar_id}/assets/{asset_id}/file:
+    get:
+      operationId: downloadAvatarAssetFile
+      tags: [avatars]
+      summary: Download avatar asset file
+      description: Download the binary asset file for an avatar. Returns the raw file, optionally gzip-compressed.
+      parameters:
+        - name: avatar_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: asset_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Asset file content
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          headers:
+            X-File-Hash:
+              schema:
+                type: string
+                description: SHA256 hash of the file
+            Content-Encoding:
+              schema:
+                type: string
+                description: Encoding (e.g., "gzip")
+            Content-Length:
+              schema:
+                type: integer
+        "404":
+          description: Avatar, asset, or file not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+    post:
+      operationId: uploadAvatarAssetFile
+      tags: [avatars]
+      summary: Upload avatar asset file
+      description: |-
+        Upload the binary asset file for an avatar asset entry. Processing is asynchronous.
+        Poll GET /avatars/{id}/assets/{asset_id}/status to track progress.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: avatar_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: asset_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: x-file-hash
+          in: header
+          required: false
+          description: SHA256 hash of the file for integrity verification
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Asset bundle file (binary)
+      responses:
+        "202":
+          description: File accepted for asynchronous processing. Poll /status to check progress.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ProcessingStatus"
+                    required: [data]
+        "400":
+          description: Invalid file or request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidField"
+        "401":
+          description: Not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "403":
+          description: Not authorized to upload files for this avatar
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "404":
+          description: Avatar or asset not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  /avatars/{avatar_id}/assets/{asset_id}/status:
+    get:
+      operationId: fetchAvatarAssetStatus
+      tags: [avatars]
+      summary: Get avatar asset processing status
+      description: |-
+        Poll the processing status of an uploaded avatar asset file.
+        Status transitions: PENDING → PROCESSING → COMPLETED (or FAILED).
+      parameters:
+        - name: avatar_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: asset_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: retry
+          in: query
+          required: false
+          description: Set to true to retry a previously failed job
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Processing status
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ProcessingStatus"
+                    required: [data]
+        "404":
+          description: Avatar or asset not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+components:
+  schemas:
+    Response:
+      type: object
+      properties:
+        data:
+          type: object
+        request:
+          type: string
+          example: "/api/avatars"
+        time:
+          type: integer
+          format: int64
+          example: 1750945093437
+      required: [data, request, time]
+
+    Error:
+      type: object
+      properties:
+        data:
+          type: "null"
+        request:
+          type: string
+        time:
+          type: integer
+        error:
+          type: object
+          required: [message, code, status]
+          properties:
+            message:
+              type: string
+            code:
+              type: integer
+            status:
+              type: integer
+
+    NotLogged:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              properties:
+                message: {example: "You are not logged in."}
+                code: {example: 7}
+                status: {example: 401}
+
+    UnAuthorized:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              properties:
+                message: {example: "You are not authorized to perform this action."}
+                code: {example: 8}
+                status: {example: 401}
+
+    NotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              properties:
+                message: {example: "Resource not found."}
+                code: {example: 3}
+                status: {example: 404}
+
+    AlreadyExists:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              properties:
+                message: {example: "{0} already exists with {1}."}
+                code: {example: 6}
+                status: {example: 409}
+
+    InvalidField:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              properties:
+                message: {example: "Invalid field: {0}, {1}."}
+                code: {example: 5}
+                status: {example: 400}
+
+    InternalError:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              properties:
+                message: {example: "An internal error occurred."}
+                code: {example: 9}
+                status: {example: 500}
+
+    Avatar:
+      type: object
+      description: Avatar object
+      properties:
+        id:
+          type: integer
+          description: Numeric avatar ID
+          example: 42
+        title:
+          type: string
+          nullable: true
+          description: Avatar display title
+          example: "My Avatar"
+        description:
+          type: string
+          nullable: true
+          description: Avatar description
+          example: "A cool avatar"
+        server:
+          type: string
+          description: Server address where the avatar is hosted
+          example: "nox.hactazia.fr"
+        tags:
+          type: array
+          items:
+            type: string
+          description: Avatar visibility and permission tags
+          example: ["sys:public"]
+        thumbnail:
+          type: string
+          nullable: true
+          format: uri
+          description: URL to avatar thumbnail
+          example: "https://nox.hactazia.fr/api/avatars/42/thumbnail"
+        owner:
+          type: string
+          description: Owner identifier (user@server)
+          example: "1@nox.hactazia.fr"
+        alias:
+          type: array
+          description: Known aliases for this avatar across federated servers
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              server:
+                type: string
+      required: [id, title, description, server, tags, thumbnail, owner, alias]
+
+    AvatarSearchResult:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of matching avatars
+        search:
+          type: string
+          nullable: true
+          description: Search query used
+        ids:
+          type: array
+          items:
+            type: string
+          description: Specific IDs that were searched
+        limit:
+          type: integer
+        offset:
+          type: integer
+        avatars:
+          type: array
+          items:
+            $ref: "#/components/schemas/Avatar"
+      required: [total, search, ids, limit, offset, avatars]
+
+    CreateAvatarRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Optional custom numeric ID (0 or omit to auto-generate)
+        title:
+          type: string
+          description: Avatar title
+        description:
+          type: string
+          description: Avatar description
+        thumbnail:
+          type: string
+          format: uri
+          description: Optional URL to thumbnail image
+      example:
+        title: "My Avatar"
+        description: "A cool avatar for VR"
+
+    UpdateAvatarRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          nullable: true
+          description: New avatar title
+        description:
+          type: string
+          nullable: true
+          description: New avatar description
+        thumbnail:
+          type: string
+          nullable: true
+          format: uri
+          description: New thumbnail URL
+
+    AvatarAsset:
+      type: object
+      description: An avatar asset for a specific engine/platform/version combination
+      properties:
+        id:
+          type: integer
+          description: Asset ID
+        version:
+          type: integer
+          description: Asset version number (engine major version, e.g., 2022)
+          example: 2022
+        engine:
+          type: string
+          description: Target engine
+          example: "unity"
+        platform:
+          type: string
+          description: Target platform
+          example: "windows"
+        is_empty:
+          type: boolean
+          description: Whether the asset has no file uploaded yet
+        url:
+          type: string
+          nullable: true
+          format: uri
+          description: Direct download URL (if available from external storage)
+        features:
+          type: array
+          items:
+            type: string
+          description: Feature flags for this asset
+        hash:
+          type: string
+          nullable: true
+          description: SHA256 hash of the asset file
+        size:
+          type: integer
+          nullable: true
+          description: File size in bytes
+      required: [id, version, engine, platform, is_empty, url, features, hash, size]
+
+    AssetListResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        assets:
+          type: array
+          items:
+            $ref: "#/components/schemas/AvatarAsset"
+      required: [total, limit, offset, assets]
+
+    CreateAssetRequest:
+      type: object
+      required: [version, engine, platform]
+      properties:
+        id:
+          type: integer
+          description: Optional custom asset ID
+        version:
+          type: integer
+          description: Asset version number (engine major version)
+          example: 2022
+        engine:
+          type: string
+          description: Target engine (e.g., "unity", "unreal", "godot")
+          example: "unity"
+        platform:
+          type: string
+          description: Target platform (e.g., "windows", "android", "webgl", "ios")
+          example: "windows"
+        url:
+          type: string
+          format: uri
+          description: Optional direct URL to file (if externally hosted)
+        hash:
+          type: string
+          description: SHA256 hash of the file
+        size:
+          type: integer
+          description: File size in bytes
+      example:
+        version: 2022
+        engine: "unity"
+        platform: "windows"
+
+    ProcessingStatus:
+      type: object
+      description: Asynchronous file processing status
+      properties:
+        status:
+          type: string
+          enum: [PENDING, PROCESSING, COMPLETED, FAILED]
+          description: Current processing status
+        message:
+          type: string
+          description: Human-readable status message
+        progress:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Processing progress percentage (0-100)
+        queue_position:
+          type: integer
+          description: Position in processing queue (when PENDING)
+        created_at:
+          type: integer
+          format: int64
+          description: Job creation timestamp in milliseconds
+        started_at:
+          type: integer
+          format: int64
+          nullable: true
+          description: Job start timestamp in milliseconds (null if not started)
+        next_at:
+          type: integer
+          format: int64
+          description: Suggested next poll timestamp in milliseconds
+        job_id:
+          type: string
+          description: Unique job identifier
+        error:
+          type: string
+          nullable: true
+          description: Error message (when status is FAILED)
+      required: [status, message, progress, next_at]
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token authentication for user sessions

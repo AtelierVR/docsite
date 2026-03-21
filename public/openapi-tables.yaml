@@ -1,0 +1,399 @@
+openapi: 3.1.3
+
+info:
+  title: Nox Tables API
+  version: 0.0.1
+  contact:
+    name: Nox Team
+    url: https://github.com/AtelierVR
+  license:
+    name: AGPL-3.0
+    url: https://www.gnu.org/licenses/agpl-3.0.en.html
+  description: |-
+    Binary blob key-value table storage for user data. Each entry is a named binary value
+    with full MIME type support. Used internally for avatars, thumbnails, banners, and
+    arbitrary user-defined public data.
+
+servers:
+  - url: https://nox.hactazia.fr/api
+    description: Production server
+
+tags:
+  - name: tables
+    description: User table / binary blob storage
+
+paths:
+  /users/@me/tables:
+    get:
+      operationId: listCurrentUserTables
+      tags:
+        - tables
+      summary: List table entries
+      description: |-
+        Returns a paginated list of metadata about the authenticated user's table entries.
+        The response is an **object map** keyed by entry ID (not an array).
+        Values contain metadata only — no blob content. Use `GET /users/@me/tables/:id`
+        to retrieve the actual binary value.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Table entry list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TableListResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+  /users/@me/tables/{id}:
+    get:
+      operationId: fetchCurrentUserTableEntry
+      tags:
+        - tables
+      summary: Get table entry value
+      description: |-
+        Retrieve the binary value stored under the given key. The response `Content-Type`
+        is set to the stored MIME type. The `Date` and `Last-Modified` headers reflect
+        the entry's storage timestamp. The `Content-Disposition` header provides the filename.
+
+        This route responds with raw binary data wrapped in the standard `{ data, request, time }`
+        envelope — the `data` field contains the binary value.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Table entry key
+          schema:
+            type: string
+            example: "public.profile_card"
+      responses:
+        "200":
+          description: Table entry binary value
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
+                description: Raw binary data stored in the entry
+          headers:
+            Content-Type:
+              description: MIME type of the stored value
+              schema:
+                type: string
+                example: "image/png"
+            Content-Disposition:
+              description: Suggests a filename for the content
+              schema:
+                type: string
+                example: "inline; filename=public.profile_card"
+            Last-Modified:
+              description: Last modification date of the entry (HTTP date)
+              schema:
+                type: string
+                format: date-time
+                example: "Thu, 26 Jun 2025 10:30:00 GMT"
+            Date:
+              description: Current server date (HTTP date)
+              schema:
+                type: string
+                format: date-time
+            Content-Length:
+              description: Size of the content in bytes
+              schema:
+                type: integer
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404":
+          description: Entry not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+    post:
+      operationId: uploadCurrentUserTableEntry
+      tags:
+        - tables
+      summary: Upload or replace table entry value
+      description: |-
+        Store or replace a binary value under the given key. The request body is raw binary
+        and the `Content-Type` header is stored alongside the data. There is no limit on
+        supported MIME types — any content type is accepted.
+
+        On success, the response is identical to `GET /users/@me/tables/:id` — the stored
+        value is returned with its MIME type header.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Table entry key
+          schema:
+            type: string
+            example: "public.profile_card"
+      requestBody:
+        required: true
+        description: Raw binary value to store
+        content:
+          "*/*":
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Entry stored — response is the stored value (same as GET)
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Type:
+              description: Stored MIME type
+              schema:
+                type: string
+            Last-Modified:
+              schema:
+                type: string
+                format: date-time
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+
+    delete:
+      operationId: deleteCurrentUserTableEntry
+      tags:
+        - tables
+      summary: Delete table entry
+      description: |-
+        Delete a table entry by key. Note: despite the `:id` path parameter, the actual key
+        to delete is taken from the `?key=` **query parameter**. The path parameter is ignored
+        by the handler. The query `key` value must match the entry key exactly.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Ignored by server — use the `key` query parameter
+          schema:
+            type: string
+        - name: key
+          in: query
+          required: true
+          description: The exact key of the table entry to delete
+          schema:
+            type: string
+            example: "public.profile_card"
+      responses:
+        "200":
+          description: Entry deleted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          success:
+                            type: boolean
+                            example: true
+                          key:
+                            type: string
+                            description: The key that was deleted
+                            example: "public.profile_card"
+                          message:
+                            type: string
+                            example: "Table entry deleted."
+                        required:
+                          - success
+                          - key
+                          - message
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404":
+          description: Entry not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+components:
+  schemas:
+    Response:
+      type: object
+      properties:
+        data:
+          description: The main response data
+        request:
+          type: string
+          description: Original request path
+          example: "/api/users/@me/tables"
+        time:
+          type: integer
+          format: int64
+          description: Response timestamp in milliseconds
+          example: 1750945093437
+      required:
+        - request
+        - time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+            code:
+              type: integer
+            status:
+              type: integer
+          required:
+            - message
+            - code
+            - status
+        request:
+          type: string
+        time:
+          type: integer
+          format: int64
+
+    NotLogged:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  example: "You are not logged in."
+                code:
+                  example: 7
+                status:
+                  example: 401
+
+    NotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  example: "Resource not found."
+                code:
+                  example: 3
+                status:
+                  example: 404
+
+    TableEntry:
+      type: object
+      description: Metadata for a single table entry (no blob content)
+      properties:
+        key:
+          type: string
+          description: Entry key identifier
+          example: "public.profile_card"
+        hash:
+          type: string
+          description: SHA-256 hash of the stored value (hex)
+          example: "30767347fcb5e38b967f622324383b88bdedf2081d7b1f1557717f178d74d171"
+        created_at:
+          type: integer
+          format: int64
+          description: Creation timestamp (ms since epoch)
+          example: 1750936113726
+        updated_at:
+          type: integer
+          format: int64
+          description: Last update timestamp (ms since epoch)
+          example: 1750945093000
+      required:
+        - key
+        - hash
+        - created_at
+        - updated_at
+
+    TableListResponse:
+      type: object
+      description: Paginated list of table entries as an object map (not array)
+      properties:
+        tables:
+          type: object
+          description: Map of entry key → entry metadata
+          additionalProperties:
+            $ref: "#/components/schemas/TableEntry"
+          example:
+            "public.profile_card":
+              key: "public.profile_card"
+              hash: "30767347fcb5..."
+              created_at: 1750936113726
+              updated_at: 1750945093000
+        total:
+          type: integer
+          minimum: 0
+          description: Total number of entries
+        limit:
+          type: integer
+          description: Requested page size
+        offset:
+          type: integer
+          description: Requested page offset
+      required:
+        - tables
+        - total
+        - limit
+        - offset
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token obtained from login or register

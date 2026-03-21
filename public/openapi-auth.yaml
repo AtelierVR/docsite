@@ -1,0 +1,370 @@
+openapi: 3.1.3
+
+info:
+  title: Nox Authentication API
+  version: 0.0.1
+  contact:
+    name: Nox Team
+    url: https://github.com/AtelierVR
+  license:
+    name: AGPL-3.0
+    url: https://www.gnu.org/licenses/agpl-3.0.en.html
+  description: |-
+    Authentication endpoints for the Nox platform: login, registration, logout,
+    and verification code dispatch.
+
+servers:
+  - url: https://nox.hactazia.fr/api
+    description: Production server
+
+tags:
+  - name: authentication
+    description: Authentication (login, register, logout)
+
+paths:
+  /auth/login:
+    post:
+      operationId: userLogin
+      tags:
+        - authentication
+      summary: User login
+      description: |-
+        Authenticate a user with their username or id and password. If successful, a session cookie will be set for the user.
+        If the user has 2FA enabled, they must provide a valid factor code.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: User logged in successfully
+          headers:
+            Set-Cookie:
+              description: Session cookie
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Bad request due to invalid field values
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidField"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserNotFound"
+        "428":
+          description: Additional verification required (2FA)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationRequired"
+
+  /auth/register:
+    post:
+      operationId: userRegister
+      tags:
+        - authentication
+      summary: User registration
+      description: |-
+        Register a new user account. If successful, the user will be automatically logged in and a session cookie will be set.
+        Registration may be disabled on some servers.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "200":
+          description: User registered and logged in successfully
+          headers:
+            Set-Cookie:
+              description: Session cookie
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Bad request due to invalid field values
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidField"
+        "403":
+          description: Registration is disabled on this server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceDisabled"
+        "409":
+          description: Username or email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlreadyExists"
+
+  /auth/logout:
+    get:
+      operationId: userLogout
+      tags:
+        - authentication
+      summary: User logout
+      description: |-
+        Log out the current user and invalidate their session. Clears the session cookie.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: User logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Response"
+        "401":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionNotFound"
+
+  /auth/{type}/send:
+    post:
+      operationId: sendVerificationCode
+      tags:
+        - authentication
+      summary: Send verification code
+      description: |-
+        Send a verification code to a user via the specified method (e.g., email).
+        Used during authentication and for 2FA verification during sensitive operations.
+        Does not require authentication.
+      parameters:
+        - name: type
+          in: path
+          required: true
+          description: The verification method type
+          schema:
+            type: string
+            enum: [email, totp]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - target
+              properties:
+                target:
+                  type: integer
+                  description: User ID to send the verification code to
+      responses:
+        "200":
+          description: Verification code sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Response"
+        "500":
+          description: Failed to send verification code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InternalError"
+
+components:
+  schemas:
+    Response:
+      type: object
+      properties:
+        data:
+          type: object
+          description: The main response data
+        request:
+          type: string
+          description: Original request path
+          example: "/api/"
+        time:
+          type: integer
+          format: int64
+          description: Timestamp of the response in milliseconds
+          example: 1750945093437
+      required:
+        - data
+        - request
+        - time
+
+    Error:
+      allOf:
+        - $ref: "#/components/schemas/Response"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                code:
+                  type: integer
+                status:
+                  type: integer
+              required:
+                - message
+                - code
+                - status
+
+    UserNotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when a user is not found
+
+    NotLogged:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when the user is not logged in
+
+    InvalidField:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when a field is invalid
+
+    VerificationRequired:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Response when additional verification is required
+
+    AlreadyExists:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when a resource already exists
+
+    ServiceDisabled:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when a service is disabled
+
+    SessionNotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when a session is not found
+
+    InternalError:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response for internal server errors
+
+    LoginRequest:
+      type: object
+      required:
+        - identifier
+        - password
+      properties:
+        identifier:
+          oneOf:
+            - type: string
+            - type: integer
+          description: Username or user ID
+          example: "hactazia"
+        password:
+          type: string
+          minLength: 6
+          maxLength: 128
+          description: User password
+          example: "hunter2"
+        twofa_token:
+          type: string
+          pattern: "^[0-9]{6}$"
+          description: 6-digit 2FA token if required
+          example: "123456"
+
+    RegisterRequest:
+      type: object
+      required:
+        - username
+        - password
+        - email
+      properties:
+        username:
+          type: string
+          pattern: "^[a-z0-9_.-]{3,16}$"
+          description: Username (unique identifier)
+        password:
+          type: string
+          minLength: 6
+          maxLength: 128
+          description: User password
+        email:
+          type: string
+          format: email
+          maxLength: 320
+          description: User's email address
+        display:
+          type: string
+          pattern: "^.{3,32}$"
+          description: Display name (optional, defaults to username)
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Session token for authenticated requests
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        expires:
+          type: integer
+          format: int64
+          description: Session expiration timestamp in milliseconds
+          example: 1750945093437
+        created_at:
+          type: integer
+          format: int64
+          description: Session creation timestamp in milliseconds
+          example: 1750936113726
+        user:
+          type: object
+          description: The authenticated user's profile (UserMe schema)
+      required:
+        - token
+        - expires
+        - created_at
+        - user
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token authentication for user sessions

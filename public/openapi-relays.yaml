@@ -1,0 +1,859 @@
+openapi: 3.1.3
+
+info:
+  title: Nox Relays API
+  version: 0.0.1
+  contact:
+    name: Nox Team
+    url: https://github.com/AtelierVR
+  license:
+    name: AGPL-3.0
+    url: https://www.gnu.org/licenses/agpl-3.0.en.html
+  description: |-
+    API endpoints for relay server management in Nox.
+    Relay servers host world instances and manage real-time multiplayer connections.
+    All admin endpoints require a Bearer token with the `sys:admin` tag.
+
+servers:
+  - url: https://nox.hactazia.fr/api
+    description: Production server
+
+tags:
+  - name: relay-admin
+    description: Relay server administration (admin only)
+
+paths:
+  /relays:
+    get:
+      operationId: listRelays
+      tags:
+        - relay-admin
+      summary: List all relays
+      description: |-
+        List all registered relay servers with their current status.
+        Requires administrator privileges (`sys:admin` tag).
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Relay list retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/RelayInfo"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "403":
+          description: Admin privileges required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+
+  /relays/{id}:
+    get:
+      operationId: fetchRelay
+      tags:
+        - relay-admin
+      summary: Get relay details
+      description: |-
+        Retrieve detailed information about a specific relay server including its current status,
+        connected clients, and active instances. Requires administrator privileges.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Relay ID
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Relay details retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RelayInfo"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "403":
+          description: Admin privileges required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "404":
+          description: Relay not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  /relays/{id}/logs:
+    get:
+      operationId: fetchRelayLogs
+      tags:
+        - relay-admin
+      summary: Get relay logs
+      description: |-
+        Retrieve log entries from a relay server. Supports filtering by timestamp
+        and pagination. Requires administrator privileges.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: since
+          in: query
+          required: false
+          description: Timestamp in milliseconds — return logs after this time
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+      responses:
+        "200":
+          description: Logs retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/RelayLog"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "403":
+          description: Admin privileges required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "404":
+          description: Relay not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  /relays/{id}/instances:
+    get:
+      operationId: fetchRelayInstances
+      tags:
+        - relay-admin
+      summary: Get relay instances
+      description: |-
+        List all active instances currently hosted on a specific relay server.
+        Requires administrator privileges.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Relay instances retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RelayInstancesResult"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "403":
+          description: Admin privileges required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "404":
+          description: Relay not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  /relays/{id}/clients:
+    get:
+      operationId: fetchRelayClients
+      tags:
+        - relay-admin
+      summary: Get relay connected clients
+      description: |-
+        List all clients currently connected to a specific relay server.
+        Requires administrator privileges.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Relay clients retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RelayClientsResult"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "403":
+          description: Admin privileges required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "404":
+          description: Relay not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  /relays/{id}/instances/{iid}/players:
+    get:
+      operationId: fetchRelayInstancePlayers
+      tags:
+        - relay-admin
+      summary: Get players in a relay instance
+      description: |-
+        List all players currently in a specific instance on a relay server.
+        Requires administrator privileges.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Relay ID
+          schema:
+            type: integer
+        - name: iid
+          in: path
+          required: true
+          description: Instance ID string on the relay
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Instance players retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/RelayPlayer"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "403":
+          description: Admin privileges required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "404":
+          description: Relay or instance not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  /relays/{id}/command:
+    put:
+      operationId: sendRelayCommand
+      tags:
+        - relay-admin
+      summary: Send command to relay
+      description: |-
+        Send an administrative command to a relay server (e.g., to change configuration).
+        Requires administrator privileges.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+                  description: Log content or command to send to the relay
+                  example: "status check"
+      responses:
+        "200":
+          description: Command sent
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          success:
+                            type: boolean
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "403":
+          description: Admin privileges required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "404":
+          description: Relay not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  /relays/{id}/stop:
+    post:
+      operationId: stopRelay
+      tags:
+        - relay-admin
+      summary: Stop relay
+      description: |-
+        Stop a running relay server. All connected clients will be disconnected.
+        Requires administrator privileges.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Relay stopped
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          success:
+                            type: boolean
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "403":
+          description: Admin privileges required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "404":
+          description: Relay not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+  /relays/{id}/restart:
+    post:
+      operationId: restartRelay
+      tags:
+        - relay-admin
+      summary: Restart relay
+      description: |-
+        Restart a relay server. The relay will stop and then start again automatically.
+        Requires administrator privileges.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Relay restart initiated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          success:
+                            type: boolean
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "403":
+          description: Admin privileges required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnAuthorized"
+        "404":
+          description: Relay not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotFound"
+
+components:
+  schemas:
+    Response:
+      type: object
+      properties:
+        data:
+          description: The main response data
+        request:
+          type: string
+          description: Original request path
+          example: "/api/"
+        time:
+          type: integer
+          format: int64
+          description: Response timestamp in milliseconds
+          example: 1750945093437
+      required:
+        - request
+        - time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+            code:
+              type: integer
+            status:
+              type: integer
+          required:
+            - message
+            - code
+            - status
+        request:
+          type: string
+        time:
+          type: integer
+          format: int64
+
+    NotLogged:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  example: "You are not logged in."
+                code:
+                  example: 7
+                status:
+                  example: 401
+
+    UnAuthorized:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  example: "You are not authorized to perform this action."
+                code:
+                  example: 8
+                status:
+                  example: 403
+
+    NotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  example: "Resource not found."
+                code:
+                  example: 3
+                status:
+                  example: 404
+
+    InternalError:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  example: "An internal error occurred."
+                code:
+                  example: 9
+                status:
+                  example: 500
+
+    RelayInfo:
+      type: object
+      description: Relay server information
+      properties:
+        id:
+          type: integer
+          description: Relay ID
+          example: 1
+        runtime:
+          type: string
+          description: Runtime type used to manage the relay (e.g., `docker`)
+          example: "docker"
+        running:
+          type: boolean
+          description: Whether the relay process is currently running
+        status:
+          description: Current relay status — either a status object or a string code
+          oneOf:
+            - $ref: "#/components/schemas/RelayStatus"
+            - type: string
+              example: "offline"
+        address:
+          type: object
+          description: Network addresses by protocol
+          additionalProperties:
+            type: string
+          example:
+            udp: "192.168.1.10:7777"
+            tcp: "192.168.1.10:7778"
+      required:
+        - id
+        - running
+
+    RelayStatus:
+      type: object
+      description: Detailed status from a live relay server
+      properties:
+        instances:
+          type: integer
+          description: Number of currently active instances (count)
+        max_instances:
+          type: integer
+          description: Maximum number of concurrent instances allowed
+        clients:
+          type: integer
+          description: Number of currently connected clients (count)
+        engine:
+          type: string
+          description: Relay engine identifier
+          example: "nox-relay"
+        version:
+          type: string
+          description: Relay software version
+          example: "1.0.0"
+        protocol:
+          type: integer
+          description: Network protocol version
+          example: 1
+        uptime:
+          type: integer
+          description: Relay uptime in seconds
+        response:
+          type: integer
+          description: Round-trip latency in milliseconds
+        specs:
+          type: object
+          description: Hardware/runtime specifications reported by the relay
+          additionalProperties: true
+      required:
+        - instances
+        - max_instances
+        - clients
+        - engine
+        - version
+        - protocol
+        - uptime
+        - response
+
+    RelayInstanceSummary:
+      type: object
+      description: Summary of an active instance on a relay server
+      properties:
+        id:
+          type: string
+          description: Instance ID string (as used in the master server)
+          example: "inst_abc123"
+        internal_id:
+          type: integer
+          description: Internal numeric ID on the relay
+        world:
+          type: string
+          description: World identifier (world_id@server)
+          example: "world123@hactazia.fr"
+        capacity:
+          type: integer
+          description: Maximum player capacity
+        player_count:
+          type: integer
+          description: Current number of players in the instance
+        flags:
+          type: integer
+          description: Bitfield of instance flags
+          example: 0
+      required:
+        - id
+        - internal_id
+        - world
+        - capacity
+        - player_count
+        - flags
+
+    RelayClientSummary:
+      type: object
+      description: A client connected to a relay server
+      properties:
+        id:
+          type: string
+          description: Client ID string
+          example: "client_xyz789"
+        address:
+          type: string
+          description: Client IP address
+          example: "192.168.1.100"
+        platform:
+          type: string
+          description: Client platform identifier
+          example: "PC_WINDOWS"
+        engine:
+          type: string
+          description: Client engine identifier
+          example: "nox-client-1.0.0"
+        user:
+          type: string
+          nullable: true
+          description: User identifier if authenticated, or null for anonymous clients
+          example: "hactazia@hactazia.fr"
+      required:
+        - id
+        - address
+        - platform
+        - engine
+        - user
+
+    RelayPlayer:
+      type: object
+      description: A player currently in a relay instance
+      properties:
+        id:
+          type: string
+          description: Player slot ID string
+          example: "player_001"
+        client_id:
+          type: string
+          description: Relay client ID string
+          example: "client_xyz789"
+        display:
+          type: string
+          description: Player display name
+          example: "Hactazia"
+        flags:
+          type: integer
+          description: Bitfield of player flags/permissions in this instance
+          example: 0
+      required:
+        - id
+        - client_id
+        - display
+        - flags
+
+    RelayLog:
+      type: object
+      description: A relay log entry
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          description: Log entry timestamp in milliseconds
+        level:
+          type: string
+          description: Log level (e.g., `info`, `warn`, `error`)
+          example: "info"
+        message:
+          type: string
+          description: Log message
+        tag:
+          type: string
+          description: Optional tag or source identifier
+      required:
+        - timestamp
+        - level
+        - message
+
+    RelayInstancesResult:
+      type: object
+      properties:
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        instances:
+          type: array
+          items:
+            $ref: "#/components/schemas/RelayInstanceSummary"
+      required:
+        - total
+        - limit
+        - offset
+        - instances
+
+    RelayClientsResult:
+      type: object
+      properties:
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        clients:
+          type: array
+          items:
+            $ref: "#/components/schemas/RelayClientSummary"
+      required:
+        - total
+        - limit
+        - offset
+        - clients
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token authentication for user sessions
