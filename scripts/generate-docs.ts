@@ -20,7 +20,7 @@ function cleanMdxFiles(dir: string) {
         const itemPath = join(dir, item);
         const stat = statSync(itemPath);
 
-        if (!stat.isDirectory()) {
+        if (stat.isDirectory()) {
             cleanMdxFiles(itemPath)
         } else if (item.endsWith('.mdx'))
             rmSync(itemPath, { force: true });
