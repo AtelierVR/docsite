@@ -1,0 +1,10 @@
+{
+    "pages": [
+        "setup",
+        "configuration",
+        "modules",
+        "parameters",
+        "building",
+        "publishing"
+    ]
+}

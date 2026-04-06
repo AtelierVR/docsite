@@ -1,0 +1,81 @@
+---
+title: Setup
+description: Instructions to set up your Avatar.
+---
+
+## Setup up Project
+
+1. Open your project ([introduction guide](/quick-start) if you haven't yet).
+
+<Tabs items={["From scratch", "From unity package"]}>
+    <Tab value="From scratch">
+        1. Intro `Assets`, make a folder for your avatars, e.g., `Avatars`.
+        <Callout type="info">
+            If you have made a fork, you can exclude the folder with .gitignore or with `_` before the folder name.
+        </Callout>
+        2. Import your avatar assets into the folder.  
+        You can separate different avatars into subfolders if needed.
+        3. Make a new scene, e.g., `OpenMe` (this is just a convention).
+        ![](/img/avatar-template.png)
+        4. Place assets in corresponding folders.
+        5. Open the scene.
+
+    </Tab>
+    <Tab value="From unity package">
+        <Callout type="info">
+            If you have any problem with the importing process, please refer to the **From scratch** tab.
+        </Callout>
+
+        1. Import the Unity package.
+        <Callout type="info">
+            You can drag and drop the .unitypackage file into the Unity Editor window,  
+            or use `Assets -> Import Package -> Custom Package...` from the top menu,  
+            or just double-click the file in your file explorer,  
+            to import it.
+        </Callout>
+        2. Validate files and click "Import".
+        ![](/img/import-unity-package.png)
+        3. Open the scene or create a new one with a prefab.
+    </Tab>
+</Tabs>
+
+### Fix Meshes
+1. Select the mesh in projet and ensure the avatar is selected as `Humanoid` in the `Rig` tab of the `Inspector`.
+![](/img/avatar-rig.png)
+2. Click on `Apply`.
+3. Click on `Configure...` to open the `Avatar Configuration` window and ensure the bones are correctly mapped.
+![](/img/avatar-configuration.png)
+
+<Callout type="warn">
+    If some bones are missing or incorrectly mapped, 
+    you can manually assign them by dragging and dropping the corresponding bones from the `Hierarchy` window to the `Avatar Configuration` window.
+    Is recommended to check `Jaw` in `Head`, if the is correctly mapped, you can just remove assignment (the jaw is optional) with `Suppr` under `Insert` in you keyboard.
+    If a bone (required) is missing, the preview will show a red cross and you won't be able to proceed, you need to assign it.
+</Callout>
+
+4. Once all bones are correctly mapped, click on `Done`.
+5. You can now drag and drop the mesh into the scene
+
+### Fix Blendshapes Rendering
+
+To fix some issues with the model (like blendshapes rendering with shaders), you can follow these steps:
+1. Select the mesh in projet and ensure you are in `Model` tab of the `Inspector`.
+2. Change `Read/Write` to `On`.
+3. Modify `Legacy Blend Shape Normals` to `On`.
+4. Click on `Apply`.
+
+![](/img/avatar-model.png)
+
+
+
+
+### Fix Materials
+
+Nox uses the [Universal Render Pipeline (URP)](https://unity.com/fr/features/srp/universal-render-pipeline),
+that differs from the default [Built-in Render Pipeline](https://docs.unity3d.com/6000.2/Documentation/Manual/built-in-render-pipeline.html) (deprecated).
+
+You can follow the official [Unity guide to convert materials](https://docs.unity3d.com/6000.2/Documentation/Manual/urp/upgrading-from-birp.html) to URP.
+
+If you need to a specific shader, 
+you can find assets at the [Unity Asset Store](https://assetstore.unity.com/)
+or the list of [Shader](/advanced-topics/shaders) page.

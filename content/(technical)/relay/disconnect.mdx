@@ -1,0 +1,70 @@
+---
+title: Disconnect
+description: Déconnexion propre du client avec nettoyage des ressources.
+---
+
+Le message **Disconnect** permet une déconnexion propre du client. 
+
+Il notifie le serveur de l'intention de fermer la connexion et permet un nettoyage approprié des ressources.
+
+
+## Priorité
+**Critical** - Ce message a la priorité la plus élevée pour garantir un nettoyage rapide des ressources.
+
+<Callout type="warning">
+
+Le message Latency **requiert** que le client ait complété le [Handshake](handshake). 
+Les requêtes envoyées avant le handshake seront ignorées par le serveur.
+
+</Callout>
+
+---
+
+## Requête Client → Serveur
+
+### Format du Payload
+```
+[reason?: string]
+```
+
+### Structure Détaillée
+
+| Type | Nom | Description |
+|------|-----|-------------|
+| string | Reason | Raison de la déconnexion (optionnel) |
+
+### Exemple de Payload
+```
+[0x0B, "User logout"]    // Reason = "User logout" (11 chars)
+```
+
+### Disconnect sans raison
+```
+// Payload vide - déconnexion minimale
+```
+Ce cas doit etre supporté, mais déconseillé.
+
+---
+
+## Réponse Serveur → Client
+
+### Comportement
+
+Il y a dex possibilités selon le contexte :
+- Le client a envoyé un Disconnect volontaire donc le serveur lui renverra un Disconnect en retour pour confirmer la déconnexion.
+- Le serveur a initié la déconnexion (ex: incompatibilité de protocole après Handshake, ou timeout) et enverra un Disconnect au client.
+
+### Format du Payload
+```
+[reason?: string]
+```
+
+### Structure Détaillée
+| Type | Nom | Description |
+|------|-----|-------------|
+| string | Reason | Raison de la déconnexion (optionnel) |
+
+### Exemple de Payload
+```
+[0x0F, "Goodbye"]    // Reason = "Goodbye" (7 chars)
+```

@@ -1,0 +1,323 @@
+---
+title: Overview
+description: Comprehensive API documentation for Nox.
+icon: paper-airplane
+---
+
+import { getIcon } from "@/lib/source";
+
+The Nox API is a RESTful HTTP API that lets you interact with the Nox platform programmatically.
+All routes are prefixed with `/api` and return JSON.
+The documentation below is generated from the [OpenAPI specification](/openapi.yaml).
+
+## Base URL
+
+Replace `{server}` with the hostname of the Nox instance you are targeting (e.g. `nox.example.com`).
+
+```
+https://{server}/api
+```
+
+The actual API root URL is advertised by the server through a **well-known discovery** mechanism.
+Clients should resolve it automatically rather than hardcoding the scheme or port.
+
+### Server discovery
+
+Given a bare hostname (e.g. `nox.example.com`), clients attempt the following strategies **in order**, stopping at the first success:
+
+#### DNS SRV record [step]
+
+Look up `_nox._tcp.<server>`.
+Each SRV record provides a target hostname and port.
+The client tries `https` then `http` for each record, sorted by priority then weight.
+
+```text
+_nox._tcp.example.com.  IN  SRV  10 100 443 nox.example.com.
+```
+
+#### DNS TXT record [step]
+
+<Callout type="info" title="Cloudflare compatibility">
+The TXT record method is a fallback for [Proxy Cloudflare](https://developers.cloudflare.com/cloudflare-one/traffic-policies/proxy/) issues.
+</Callout>
+
+
+Look up `_nox.<server>`.
+Any record containing `ng=<url>` is followed directly.
+
+```text
+_nox.example.com.  IN  TXT  "ng=https://nox.example.com/.well-known/nox"
+```
+
+#### NodeInfo link [step]
+
+Fetch `/.well-known/nodeinfo` and follow the link whose `rel` is `nox/1.0`.
+
+```json title="/.well-known/nodeinfo"
+{
+  "links": [
+    { "rel": "nox/1.0", "href": "https://nox.example.com/.well-known/nox" }
+  ]
+}
+```
+
+#### Manual fallback [step]
+
+Fetch `/.well-known/nox` directly (tries `https` then `http`).
+The response is a `NoxWellKnown` document describing the server's API root and capabilities.
+
+<Callout type="info" title="Caching">
+  The TTL of the resolved URL is derived from the HTTP response headers (`Cache-Control: max-age` or `Expires`).
+  Fall back to **5 minutes** when no caching header is present.
+</Callout>
+
+## Authentication
+
+Most endpoints require a **Bearer token** obtained from [`POST /api/auth/login`](/api/auth/login) or [`POST /api/auth/register`](/api/auth/register).
+
+Pass the token in the `Authorization` header of every authenticated request:
+
+```http
+Authorization: Bearer <token>
+```
+
+<Callout type="warn" title="Token lifetime">
+  Tokens are tied to a session. Call [`POST /api/auth/logout`](/api/auth/logout) to invalidate the current token.
+</Callout>
+
+## Response envelope
+
+Every response (except [Fediverse](#fediverse) and [Storage](#storage) endpoints) is wrapped in a consistent envelope:
+
+```json title="Success"
+{
+  "data": { "id": "1@nox.example.com", "username": "alice" },
+  "error": null,
+  "time": 1700000000000,
+  "request": "/api/users/me"
+}
+```
+
+```json title="Error"
+{
+  "data": null,
+  "error": {
+    "code": "USER_NOT_FOUND",
+    "message": "No user found with this identifier.",
+    "status": 404
+  },
+  "time": 1700000000000,
+  "request": "/api/users/1@nox.example.com"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `data` | `object \| null` | The response payload on success, `null` on error. |
+| `error` | `object \| null` | Error details on failure, `null` on success. |
+| `error.code` | `string` | Machine-readable error code (e.g. `USER_NOT_FOUND`). |
+| `error.message` | `string` | Human-readable description of the error. |
+| `error.status` | `number` | HTTP status code repeated inside the body. |
+| `time` | `number` | Unix timestamp (ms) at which the response was produced. |
+| `request` | `string` | The request path that was processed. |
+
+## Nox Identifiers
+
+Resources are identified by a **NoxIdentifier** — a compact, URL-safe string that encodes a resource type, a numeric or named ID, optional query parameters, and an optional server address.
+
+### Full format
+
+```
+[<type>:]<id>[?<key>=<value>[&<key>=<value>...]][@<server>]
+```
+
+All parts except `<id>` are optional.
+When `@<server>` is omitted the identifier refers to a resource on the **local** server.
+
+### Type prefixes
+
+| Prefix | Resource | ID format |
+|--------|----------|-----------|
+| _(none)_ | Generic / untyped | numeric or string |
+| `u:` | User | numeric ID **or** username string |
+| `w:` | World | numeric ID |
+| `i:` | Instance | numeric ID **or** shortname |
+
+### Query parameters embedded in identifiers
+
+Query parameters are appended after a `?` and before the optional `@<server>` part.
+They allow passing context or options together with the identifier, without adding extra URL parameters.
+
+#### World (`w:`) queries
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `v` | `ushort` | Asset version to load (e.g. `v=3` selects version 3 of the world's asset bundle). |
+
+#### Instance (`i:`) queries
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `w` | `string` (base64) | NoxIdentifier of the world to join, encoded in base64. |
+| `p` | `string` (base64) | Password required to join the instance, encoded in base64. |
+
+### Examples
+
+```
+1@nox.example.com                       # untyped resource #1 on remote server
+u:1@nox.example.com                     # user #1 on remote server
+u:alice                                 # user "alice" on the local server
+w:42@nox.example.com                    # world #42 on remote server
+w:42?v=3@nox.example.com               # world #42, asset version 3
+i:lobby                                 # instance with shortname "lobby" on local server
+i:7?w=NDJAbm94LmV4YW1wbGUuY29t         # instance #7 joining world encoded in base64
+i:7?w=NDJAbm94LmV4YW1wbGUuY29t&p=c2VjcmV0  # same, with password
+```
+
+<Callout type="info" title="Base64 encoding">
+  The `w` and `p` query values inside instance identifiers are standard **base64** strings (no padding required).
+  Encode the plain NoxIdentifier of the target world before embedding it.
+</Callout>
+
+## Pagination
+
+List endpoints return a paginated envelope inside `data`:
+
+```json
+{
+  "data": {
+    "total": 120,
+    "limit": 20,
+    "offset": 0,
+    "items": [ "..." ]
+  }
+}
+```
+
+Control pagination with the `limit` and `offset` query parameters.
+
+## Asset upload flow
+
+Uploading binary assets (avatars, worlds) is a three-step process:
+
+### Create asset slot [step]
+
+```http
+PUT /api/assets
+```
+
+Returns a new asset object including an `id` field.
+
+### Upload file [step]
+
+```http
+POST /api/assets/{id}/file
+Content-Type: multipart/form-data
+```
+
+Returns `202 Accepted` with an `ApiAssetJobStatusDto` (`{ jobId, status }`).
+
+### Poll for completion [step]
+
+```http
+GET /api/assets/{id}/status
+```
+
+Poll until `status === "completed"`. Once complete the asset is available for use.
+
+## API groups
+
+<Cards>
+  <Card
+    icon={getIcon("bolt")}
+    href="/api/activity"
+    title="Activity"
+    description="Fetch and manage the activity event log."
+  />
+  <Card
+    icon={getIcon("lock-closed")}
+    href="/api/auth"
+    title="Auth"
+    description="Register, log in, and log out. Obtain Bearer tokens."
+  />
+  <Card
+    icon={getIcon("face-smile")}
+    href="/api/avatars"
+    title="Avatars"
+    description="Create and manage avatars including asset uploads."
+  />
+  <Card
+    icon={getIcon("at-symbol")}
+    href="/api/fediverse"
+    title="Fediverse"
+    description="WebFinger, NodeInfo, and host-meta endpoints for federation."
+  />
+  <Card
+    icon={getIcon("server-stack")}
+    href="/api/instances"
+    title="Instances"
+    description="Spin up, update, and remove running world instances."
+  />
+  <Card
+    icon={getIcon("arrows-right-left")}
+    href="/api/relations-(s2s)"
+    title="Relations (S2S)"
+    description="Server-to-server federation endpoints."
+  />
+  <Card
+    icon={getIcon("signal")}
+    href="/api/relay"
+    title="Relay"
+    description="Admin: relay server management, logs, and commands."
+  />
+  <Card
+    icon={getIcon("cog-6-tooth")}
+    href="/api/server"
+    title="Server"
+    description="Admin: server configuration and log access."
+  />
+  <Card
+    icon={getIcon("arrow-up-tray")}
+    href="/api/storage"
+    title="Storage"
+    description="Serve stored binary files by asset ID."
+  />
+  <Card
+    icon={getIcon("table-cells")}
+    href="/api/tables"
+    title="Tables"
+    description="Per-user key/value store for client-side persistent data."
+  />
+  <Card
+    icon={getIcon("user-circle")}
+    href="/api/users"
+    title="Users"
+    description="User profiles, search, follow/unfollow, thumbnail and banner management."
+  />
+  <Card
+    icon={getIcon("globe-alt")}
+    href="/api/worlds"
+    title="Worlds"
+    description="Create and manage virtual worlds including asset uploads."
+  />
+</Cards>
+
+## Fediverse
+
+The Fediverse endpoints (`/.well-known/*`, `/nodeinfo/*`) follow their respective protocol standards and do **not** use the response envelope described above. They return plain JSON or XML as required by the protocol.
+
+## Error codes
+
+Common HTTP status codes returned by the API:
+
+| Status | Meaning |
+|--------|---------|
+| `200` | Success |
+| `201` | Resource created |
+| `202` | Accepted (async job started) |
+| `400` | Bad request — invalid parameters |
+| `401` | Unauthorized — missing or invalid token |
+| `403` | Forbidden — insufficient permissions |
+| `404` | Resource not found |
+| `409` | Conflict — e.g. duplicate username |
+| `500` | Internal server error |

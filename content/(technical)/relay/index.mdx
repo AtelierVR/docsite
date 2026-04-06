@@ -1,0 +1,198 @@
+---
+title: Overview
+description: Système de communication réseau de NOX pour gérer les connexions entre clients et serveurs
+---
+
+Le **Relay Protocol** est un système de communication réseau utilisé par NOX pour gérer les connexions entre les clients et les serveurs. 
+
+Il utilise à la fois TCP et UDP pour permettre la compatibilité de connexion des clients.
+
+## Architecture Générale
+
+Le Relay NOX fonctionne comme un serveur proxy intelligent qui :
+
+- **Reçoit** les connexions TCP et UDP des clients
+- **Route** les messages entre les clients connectés
+- **Gère** l'authentification et les sessions
+
+## Format des Paquets
+
+Tous les paquets suivent une structure commune :
+
+### Structure de Base
+
+<Callout type="info">
+Pour plus de clareté, les structures de base sont présentées sous le format si dessous, 
+L'explication du format est détaillée en bas de page.
+</Callout>
+
+```
+[length: ushort]
+[uid: ushort]
+[type: byte]
+[payload: byte[]]
+```
+
+### Structure détaillée
+
+| Type    | Nom     | Description                                 |
+|---------|---------|---------------------------------------------|
+| ushort  | Length  | Taille totale du paquet (inclut Length)     |
+| ushort  | UID     | Identifiant unique (optionnel)              |
+| byte    | Type    | Type de requête/réponse                     |
+| byte[]  | Payload | Données du message                          |
+
+### Constantes Importantes
+- **Version du protocole** : `1`
+- **Taille max paquet** : `1024 bytes`
+- **Port par défaut** : `23032`
+- **Timeout connexion** : `15 secondes`
+- **Intervalle keep-alive** : `5 secondes`
+- **Timeout segmentation** : `30 secondes`
+
+### Unique Identifier (UID)
+
+Le champ UID permet de faire un callback d'une requête spécifique.
+Si le message vient du serveur, le client doit répondre avec le même UID.
+Et l'UID de `0x0000` pour indiquer qu'il n'attend pas de réponse ou par défaut.
+
+### Timeout et Keep-Alive
+
+Le timeout est réinitialisé à chaque réception de paquet valide. 
+En cas d'absence de paquets à envoyer, c'est le client qui doit envoyer un packet (ex: [Latency](latency)) dans un délai inférieur à la valeur de timeout pour maintenir la connexion active.
+C'est le client qui doit gérer l'envoi de keep-alive.
+
+## Exemple de Flux de Communication
+
+1. **Handshake** : Le client initie la connexion avec un message Handshake.
+2. **Authentification** : Le client s'authentifie avec un message Authentification.
+3. **Session** : Pour obtenir des informations sur une instance.
+4. **Enter** : Pour rejoindre une instance.
+5. **Disconnect** : Pour une déconnexion propre, le client sera automatiquement retiré des sessions auxquelles il est connecté.
+
+## Système de Priorités
+
+Le protocole utilise un système de priorités pour optimiser les performances :
+
+- **Critical** : Handshake, Disconnect
+- **High** : Authentification, Enter/Quit
+- **Normal** : Transform, Status
+- **Low** : Custom messages (ces packets risquent d'être retardés ou perdus en cas de congestion)
+
+## Sécurité
+
+- **Validation de protocole** lors du handshake
+- **Authentification requise** avant toute action (sauf si le serveur est en offline mode)
+- **Limitation de taille** des paquets (1024 bytes max, ou personnalisé par le serveur)
+
+## Types de Messages (Client → Serveur)
+
+Le protocole supporte les types de messages suivants que les **clients peuvent envoyer au serveur** :
+
+| Type | Nom | Description | Priorité |
+|------|-----|-------------|----------|
+| 0x00 | [Disconnect](disconnect) | Déconnexion propre | Critical |
+| 0x01 | [Handshake](handshake) | Initialisation de connexion | Critical |
+| 0x02 | [Segmentation](segmentation) | Fragmentation de gros messages | Normal |
+| 0x03 | [Reliable](reliable) | Messages fiables | Normal |
+| 0x04 | [Latency](latency) | Test de latence | Normal |
+| 0x05 | [Authentification](authentification) | Validation d'identité | High |
+| 0x06 | [Enter](enter) | Rejoindre une instance | High |
+| 0x07 | [Quit](quit) | Quitter une instance | High |
+| 0x08 | [Custom](custom) | Messages personnalisés | Normal |
+| 0x09 | [PasswordRequirement](password-requirement) | Demande de mot de passe | High |
+| 0x0A | [Traveling](traveling) | Déplacement entre instances | Normal |
+| 0x0B | [Transform](transform) | Position/rotation en temps réel | Normal |
+| 0x0C | [Teleport](teleport) | Téléportation instantanée | High |
+| 0x0D | [AvatarChanged](avatar-changed) | Changement d'avatar | Normal |
+| 0x0E | [ServerConfig](server-config) | Configuration serveur | High |
+| 0x0F | [AvatarParams](avatar-params) | Paramètres d'avatar | Normal |
+| 0x11 | [Sessions](sessions) | Permet d'obtenir les informations des sessions | Normal |
+
+## Types de Réponses (Serveur → Client)
+
+Le **serveur utilise un ensemble différent de types** pour ses réponses et notifications :
+
+| Type | Nom | Description | Origine |
+|------|-----|-------------|---------|
+| 0x00 | [Disconnect](disconnect) | Confirmation/notification de déconnexion | Réponse |
+| 0x01 | [Handshake](handshake) | Confirmation du handshake | Réponse |
+| 0x02 | [Segmentation](segmentation) | Fragmentation de réponses | Réponse |
+| 0x03 | [Reliable](reliable) | Réponses fiables | Réponse |
+| 0x04 | [Latency](latency) | Réponse de test de latence | Réponse |
+| 0x05 | [Authentification](authentification) | Résultat d'authentification | Réponse |
+| 0x06 | [Enter](enter) | Résultat d'entrée dans instance | Réponse |
+| 0x07 | [Quit](quit) | Confirmation de sortie | Réponse |
+| 0x08 | [Custom](custom) | Réponses personnalisées | Réponse |
+| 0x09 | [PasswordRequirement](password-requirement) | Réponse mot de passe | Réponse |
+| 0x0A | [Traveling](traveling) | Confirmation de déplacement | Réponse |
+| 0x0B | [Transform](transform) | Synchronisation de position | Réponse/Notification |
+| 0x0C | [Teleport](teleport) | Confirmation de téléportation | Réponse |
+| 0x0D | [AvatarChanged](avatar-changed) | Notification changement avatar | Réponse/Notification |
+| 0x0E | [ServerConfig](server-config) | Notification changement config | Réponse/Notification |
+| 0x0F | [AvatarParams](avatar-params) | Notification paramètres avatar | Réponse/Notification |
+| 0x10 | [Join](join) | Notification arrivée joueur | Notification |
+| 0x11 | [Leave](leave) | Notification départ joueur | Notification |
+| 0x12 | [Sessions](sessions) | Informations des sessions | Réponse |
+
+### Informations importantes :
+
+- **Réponses** : Messages envoyés en réaction directe à une requête client (même UID)
+- **Notifications** : Messages automatiques envoyés par le serveur (UID = 0x0000)
+
+Chaque type de message a sa propre page de documentation détaillée avec les formats d'entrée et de sortie spécifiques.
+
+## Types des Données
+
+Le protocole utilise plusieurs types de données pour structurer les messages. Voici les types supportés :
+
+| Type | Taille (bytes) | Description |
+|------|----------------|-------------|
+| `byte` | 1 | Entier non signé 8 bits |
+| `short` | 2 | Entier signé 16 bits (big-endian) |
+| `ushort` | 2 | Entier non signé 16 bits (big-endian) |
+| `int` | 4 | Entier signé 32 bits (big-endian) |
+| `uint` | 4 | Entier non signé 32 bits (big-endian) |
+| `long` | 8 | Entier signé 64 bits (big-endian) |
+| `ulong` | 8 | Entier non signé 64 bits (big-endian) |
+| `float` | 4 | Nombre flottant simple précision (big-endian) |
+| `double` | 8 | Nombre flottant double précision (big-endian) |
+| `string` | 2 + N | Chaîne UTF-8 avec préfixe de longueur (ushort) |
+| `DateTime` | 8 | Timestamp Unix en millisecondes |
+| `Vector3` | 12 | 3 composants float (X, Y, Z) |
+| `Quaternion` | 16 | 4 composants float (X, Y, Z, W) |
+| `byte[]` | N | Tableau d'octets |
+| `Enum` | Variable | Énumération/Flags (selon le type sous-jacent) |
+
+### Notes Importantes
+
+- **Ordre des octets** : Tous les types multi-octets utilisent l'ordre big-endian (byte de poids fort en premier)
+- **Chaînes de caractères** : Encodées en UTF-8 avec un préfixe `ushort` indiquant la longueur
+- **Timestamps** : Stockés comme des timestamps Unix en millisecondes (long)
+- **Énumérations** : Sérialisées selon leur type sous-jacent (`byte`, `ushort`, `uint`)
+
+<Callout type="info">
+Dans le protocol, la lecture se fait octet par octet. 
+Donc certains types de données ne sont pas permit comme les booléens qu'il faut convertir en byte ou en flags avec d'autres booléens.
+</Callout>
+
+## Syntaxe des Packets dans la Documentation
+Chaque message dans la documentation est présenté avec une syntaxe claire pour le format des paquets.
+
+```
+[Length: ushort]
+[UID: ushort]
+[Type: byte]
+[Payload?: byte[]]
+(0x01 in Type ? [Reason?: string])
+(Latency == Type ? (
+    [ClientTimestamp: DateTime]
+    [ServerTimestamp: DateTime]
+))
+```
+
+Chaque champ est décrit sous forme d'entrée entre crochets `[]` avec le nom du champ, son type.
+Quand un champ est optionnel, un `?` est ajouté avant les `:`.
+Quand on regroupe une liste de champs, on les mets entre parenthèses `()`.
+De même quand il y a une condition, on utilise la même syntaxe `(Condition ? [Field])` ou `(Condition1 ? [Field1] :  [Field2])`.
+Les champs sont listés dans l'ordre d'apparition dans le paquet.

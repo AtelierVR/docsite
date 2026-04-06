@@ -1,0 +1,197 @@
+---
+title: Quit
+description: Quitter une instance de jeu avec gestion des différents types de départ et notifications aux autres joueurs.
+---
+
+Le message **Quit** permet aux clients de quitter une instance de jeu de manière contrôlée. 
+
+Il gère différents types de départ (volontaire, expulsion, timeout) et notifie les autres joueurs de l'instance.
+
+## Priorité
+**Critical** - Ce message a la priorité la plus élevée pour garantir un nettoyage rapide des ressources.
+
+<Callout type="warning">
+
+Le message Quit **requiert** que le client soit présent dans l'instance spécifiée. 
+Les requêtes pour des instances où le client n'est pas présent seront rejetées.
+
+</Callout>
+
+---
+
+## Requête Client → Serveur
+
+### Format du Payload
+```
+[instance_id: byte]
+[quit_type: byte]
+[reason?: string]
+```
+
+### Structure Détaillée
+
+| Type | Nom | Description |
+|------|-----|-------------|
+| byte | InstanceID | ID de l'instance à quitter |
+| byte | QuitType | Type de départ |
+| string | Reason | Raison du départ (optionnel) |
+
+### Quit Types
+
+| Valeur | Nom | Description |
+|--------|-----|-------------|
+| 0x00 | Normal | Départ volontaire du joueur |
+| 0x01 | Timeout | Déconnexion par timeout |
+| 0x02 | ModerationKick | Expulsion par un modérateur |
+| 0x03 | VoteKick | Expulsion par vote des joueurs |
+| 0x04 | ConfigurationError | Erreur de configuration |
+| 0x05 | UnknownError | Erreur inconnue |
+
+### Exemple de Payload
+```
+[0x05]                          // InstanceID = 5
+[0x00]                          // QuitType = Normal
+```
+
+### Départ avec Raison
+```
+[0x03]                          // InstanceID = 3
+[0x00]                          // QuitType = Normal
+[0x0E, "Going to sleep"]        // Reason = "Going to sleep" (14 chars)
+```
+
+---
+
+## Réponse Serveur → Client
+
+### Format du Payload
+```
+[instance_id: byte]
+[quit_type: byte]
+[reason?: string]
+```
+
+### Structure Détaillée
+
+| Type | Nom | Description |
+|------|-----|-------------|
+| byte | InstanceID | ID de l'instance quittée |
+| byte | QuitType | Type de départ confirmé |
+| string | Reason | Raison du départ (si fournie) |
+
+### Exemple de Réponse - Succès
+```
+[0x05]                          // InstanceID = 5
+[0x00]                          // QuitType = Normal
+```
+
+### Exemple de Réponse - Avec Raison
+```
+[0x05]                          // InstanceID = 5
+[0x00]                          // QuitType = Normal
+[0x0E, "Going to sleep"]        // Reason = "Going to sleep"
+```
+
+### Exemple de Réponse - Erreur
+```
+[0x05]                          // InstanceID = 5
+[0x05]                          // QuitType = UnknownError
+[0x13, "Instance not found"]    // Reason = "Instance not found"
+```
+
+---
+
+## Messages de Notification
+
+### Leave
+Quand un joueur quitte, tous les autres joueurs de l'instance reçoivent un message [Leave](leave) avec les détails du départ.
+
+Le joueur qui quitte reçoit aussi des messages `Leave` pour tous les autres joueurs de l'instance afin de nettoyer son état local.
+
+---
+
+## Traitement
+
+### Côté Serveur
+1. **Validation d'instance** : Vérification que l'instance existe
+2. **Validation de présence** : S'assurer que le client est dans l'instance
+3. **Lecture des données** : Extraction du type de départ et de la raison
+4. **Validation des permissions** : Vérification des droits selon le type de départ
+5. **Nettoyage du joueur** : Suppression de l'instance et mise à jour du statut
+6. **Notifications** : Envoi des messages [Leave](leave) aux autres joueurs
+7. **Réponse** : Confirmation au client qui quitte
+
+### Côté Client
+1. **Préparation des données** : Assemblage de l'ID d'instance et du type
+2. **Envoi optionnel** : Ajout de la raison si nécessaire
+3. **Traitement des notifications** : Gestion des messages [Leave](leave) reçus
+4. **Nettoyage local** : Suppression des données d'instance
+
+---
+
+## Filtrage des Notifications
+
+### Privilèges des Joueurs
+Le type de départ dans les notifications [Leave](leave) est filtré selon les privilèges :
+
+- **Joueurs normaux** : Reçoivent le type réel pour les actions de modération
+- **Joueurs privilégiés** : Reçoivent toujours `Normal` 
+- **Modérateur initiateur** : Reçoit le type réel avec les détails complets
+
+### Actions de Modération
+Les actions de modération (`ModerationKick`, `VoteKick`) incluent des informations supplémentaires dans le message [Leave](leave) :
+- ID du modérateur/initiateur
+- Raison de l'action (si fournie)
+
+---
+
+## Validation des Permissions
+
+### Types de Départ Restreints
+Certains types de départ nécessitent des permissions spéciales :
+
+| Type | Condition Requise |
+|------|------------------|
+| ModerationKick | L'initiateur doit être modérateur |
+| VoteKick | Géré par le système de vote |
+| Timeout | Uniquement initié par le serveur |
+| Normal | Uniquement initié par le joueur lui-même |
+
+### Rejet Automatique
+Les requêtes non conformes aux permissions sont automatiquement rejetées sans traitement.
+
+---
+
+## Comportements Spéciaux
+
+### Statut du Joueur
+Seuls les joueurs avec un statut valide (`PlayerStatus.Ready`) déclenchent les notifications aux autres joueurs.
+
+### Nettoyage Bidirectionnel
+Quand un joueur quitte :
+1. Il reçoit des messages `Leave` pour tous les autres joueurs
+2. Tous les autres joueurs reçoivent un message `Leave` pour lui
+
+### Mise à Jour du Serveur Maître
+Le départ d'un joueur déclenche une mise à jour immédiate du serveur maître pour synchroniser l'état de l'instance.
+
+---
+
+## Codes d'Erreur
+
+### Erreurs d'Instance
+- `UnknownError` avec "Instance not found" : L'instance spécifiée n'existe pas
+- `UnknownError` avec "You are not in instance" : Le client n'est pas dans l'instance
+
+### Erreurs de Permission
+Les tentatives de départ avec des types non autorisés sont silencieusement ignorées, sans réponse d'erreur.
+
+---
+
+## Gestion de la Déconnexion
+
+### Timeout Automatique
+Le serveur peut initier un `Quit` avec le type `Timeout` pour les clients qui ne répondent plus.
+
+### Nettoyage d'Urgence
+En cas de déconnexion brutale, le serveur gère automatiquement le nettoyage avec un type approprié.

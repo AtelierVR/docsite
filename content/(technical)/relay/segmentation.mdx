@@ -1,0 +1,119 @@
+---
+title: Segmentation
+description: Système de fragmentation et reconstruction de paquets volumineux pour optimiser le transport réseau.
+---
+
+Le message **Segmentation** permet de diviser et reconstituer des paquets volumineux en segments plus petits. 
+
+Ce mécanisme est essentiel pour gérer les limitations de taille des paquets réseau et assurer une transmission fiable des données importantes.
+
+## Priorité
+**Critical** - Ce message a la priorité la plus élevée pour garantir un assemblage correct et rapide des segments.
+
+---
+
+## Cas d'Usage
+
+### Fragmentation de Données Volumineuses
+Permet de transmettre des données dépassant la taille maximale des paquets (définie lors du handshake).
+
+### Optimisation Réseau
+Évite les échecs de transmission dus aux limitations MTU (Maximum Transmission Unit) du réseau.
+
+### Transmission Fiable
+Garantit l'intégrité des données en permettant la retransmission de segments individuels en cas d'échec.
+
+---
+
+## Requête Client → Serveur (0x02)
+
+### Format du Payload
+```
+[segment_id: ushort]
+[total_segments: ushort]
+[current_segment: ushort]
+[segment_data: byte[]]
+```
+
+### Structure Détaillée
+
+| Type | Nom | Description |
+|------|-----|-------------|
+| ushort | SegmentID | Identifiant unique de la session de segmentation |
+| ushort | TotalSegments | Nombre total de segments pour ce paquet |
+| ushort | CurrentSegment | Index du segment actuel (0-based) |
+| byte[] | SegmentData | Données de ce segment spécifique |
+
+### Exemple de Payload
+```
+[0x00, 0x2A]           // SegmentID = 42
+[0x00, 0x03]           // TotalSegments = 3
+[0x00, 0x00]           // CurrentSegment = 0 (premier segment)
+[données_binaires...]   // SegmentData
+```
+
+---
+
+## Traitement
+
+### Côté Serveur
+1. **Réception du segment** : Extraction des métadonnées de segmentation
+2. **Vérification d'expiration** : Test si la session existante n'a pas expiré
+3. **Création/Récupération de session** : Gestion de la session basée sur SegmentID + hash client
+4. **Ajout du segment** : Stockage ordonné du segment dans la session
+5. **Vérification de complétude** : Test si tous les segments sont reçus
+6. **Reconstruction** : Assemblage des segments en paquet original si complet
+7. **Nettoyage** : Suppression de la session après reconstruction
+
+### Identification Unique
+Chaque session de segmentation est identifiée par :
+```
+Key = HashCode.Combine(SegmentID, ClientAddress.GetHashCode())
+```
+
+---
+
+## Limitations et Considérations
+
+### Timeout de Session
+- Les sessions de segmentation ont un timeout automatique pour éviter les fuites mémoire.
+
+### Ordre des Segments
+- Les segments peuvent arriver dans n'importe quel ordre
+- Le système reconstruit automatiquement l'ordre correct
+
+### Collision d'ID
+- Utilisez des SegmentID uniques pour éviter les collisions
+- Le hash de l'adresse client ajoute une couche de différenciation
+
+### Performance
+- **Impact mémoire** : Géré automatiquement par le système de timeout
+- **Fréquence de nettoyage** : Timer fixe de 10 secondes (non configurable)
+- **Vérification d'expiration** : Coût minimal lors de la réception
+
+---
+
+## Exemple d'Utilisation
+
+### Envoi d'un Gros Paquet (1500 bytes)
+```
+Segment 1: [0x2A] [3] [0] [500 bytes]
+Segment 2: [0x2A] [3] [1] [500 bytes]  
+Segment 3: [0x2A] [3] [2] [500 bytes]
+```
+
+### Reconstruction
+Une fois tous les segments reçus, le serveur :
+1. Merge les 1500 bytes dans l'ordre correct
+2. Traite le paquet reconstitué comme un paquet normal
+
+---
+
+## Codes d'Erreur
+
+### Segments Expirés
+Les segments appartenant à des sessions expirées sont automatiquement rejetés.
+Le client doit retransmettre l'ensemble des segments pour créer une nouvelle session.
+
+### SegmentID Invalide
+Les SegmentID doivent être cohérents pour tous les segments d'une même session.

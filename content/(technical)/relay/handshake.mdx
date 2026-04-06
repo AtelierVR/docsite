@@ -1,0 +1,114 @@
+---
+title: Handshake
+description: Premier échange obligatoire entre client et serveur pour établir la compatibilité du protocole.
+---
+
+Le message **Handshake** est le premier échange obligatoire entre un client et le serveur Relay. 
+
+Il permet d'établir la compatibilité du protocole et d'échanger les informations de base de connexion.
+
+## Priorité
+**Critical** - Ce message a la priorité la plus élevée et doit être traité immédiatement.
+
+---
+
+## Requête Client → Serveur
+
+### Format du Payload
+```
+[protocol: ushort]
+[engine: string]
+[platform: string]
+```
+
+### Structure Détaillée
+
+| Type | Nom | Description |
+|------|-----|-------------|
+| ushort | Protocol | Version du protocole (actuellement 1) |
+| string | Engine | Nom du moteur (ex: "unity", "unreal") en minuscules |
+| string | Platform | Plateforme (ex: "windows", "android") en minuscules |
+
+### Exemple de Payload
+```
+[0x00, 0x01]        // Protocol = 1
+[0x05, "unity"]     // Engine = "unity" (5 chars)
+[0x07, "windows"]   // Platform = "windows" (7 chars)
+```
+
+---
+
+## Réponse Serveur → Client
+
+### Format du Paquet
+```
+[protocol: ushort]
+[client_id: ushort]
+[client_ip: 4 bytes]
+[client_port: ushort]
+[flags: byte]
+(IsOffline in flags ? [master_addr: string])
+[ushort] Max Packet Size
+[ushort] Connection Timeout
+[ushort] Keep Alive Interval
+[ushort] Segmentation Timeout
+```
+
+### Structure Détaillée
+
+| Type | Nom | Description |
+|------|-----|-------------|
+| ushort | Protocol | Version du protocole confirmée |
+| ushort | ClientID | ID unique assigné au client |
+| byte[4] | IPAddress | Adresse IP du client vue par le serveur |
+| ushort | Port | Port du client |
+| byte | Flags | Flags d'état du handshake |
+| string | MasterAddr | Adresse du serveur maître (conditionnel) |
+|  ushort | MaxPacketSize | Taille maximale des paquets (1024) |
+| ushort | Timeout | Timeout de connexion (15 sec) |
+| ushort | KeepAlive | Intervalle keep-alive (5 sec) |
+| ushort | SegmentationTimeout | Timeout pour les sessions de segmentation (30 sec) |
+
+### Handshake Flags
+
+| Valeur | Nom | Description |
+|--------|-----|-------------|
+| 0x00 | None | Fonctionnement normal |
+| 0x01 | IsOffline | Serveur en mode offline (pas de serveur maître) |
+
+### Exemple de Réponse
+```
+[0x00, 0x01]                    // Protocol = 1
+[0x00, 0x42]                    // ClientID = 66
+[0xC0, 0xA8, 0x01, 0x10]        // IP = 192.168.1.16
+[0x9C, 0x40]                    // Port = 40000
+[0x00]                          // Flags = None
+[0x0A, "master.nox"]            // MasterAddr = "master.nox"
+[0x04, 0x00]                    // MaxPacketSize = 1024
+[0x00, 0x0F]                    // Timeout = 15
+[0x00, 0x05]                    // KeepAlive = 5
+[0x00, 0x1E]                    // SegmentationTimeout = 30
+```
+
+---
+
+## Traitement
+
+### Côté Serveur
+1. **Validation du protocole** : Vérification de la version
+2. **Assignation d'ID** : Attribution d'un ID unique au client
+3. **Détection d'IP** : Extraction de l'adresse client
+4. **Configuration des flags** : Selon l'état du serveur
+5. **Envoi de la réponse** : Avec tous les paramètres de connexion
+
+### Côté Client
+1. **Réception des paramètres** : Configuration locale selon la réponse
+3. **Configuration réseau** : Ajustement selon MaxPacketSize et timeouts
+
+---
+
+## Codes d'Erreur
+
+### Incompatibilité de Protocole
+Si la version du protocole ne correspond pas ou incompatible,
+le serveur enverra un paquet [Disconnect](disconnect) immédiatement après le Handshake.

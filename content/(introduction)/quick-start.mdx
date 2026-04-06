@@ -1,0 +1,82 @@
+---
+title: Quick Start
+description: Getting started with Nox.
+icon: bookmark-square
+---
+import { getIcon } from "@/lib/source";
+
+## Introduction
+
+Nox is a platform that allows you to create and explore virtual worlds.
+The system is based on a federated architecture, moddable clients and opensource repositories.
+
+The documentation is divided into several sections 
+to help you get started 
+and make the most out of Nox.
+
+<Cards>
+    <Card 
+        icon={getIcon("book-open")}
+        href="/guides" 
+        title="Guides" 
+        description="A comprehensive guides to using Nox effectively."
+    />
+    <Card
+        icon={getIcon("user-circle")}
+        href="/avatars"
+        title="Avatars"
+        description="Learn how to use avatars in Nox to represent users visually."
+    />
+    <Card
+        icon={getIcon("globe-alt")}
+        href="/worlds"
+        title="Worlds"
+        description="Discover how to create and manage virtual worlds in Nox."
+    />
+    <Card
+        icon={getIcon("arrow-top-right-on-square")}
+        href="/openapi"
+        title="OpenAPI"
+        description="Explore the Nox OpenAPI for integrating with external applications."
+    />
+    <Card
+        icon={getIcon("user-group")}
+        href="/relay"
+        title="Relay Protocol"
+        description="Learn about the Relay Protocol for real-time communication in Nox."
+    />
+    <Card
+        icon={getIcon("heart")}
+        href="/contributing"
+        title="Contributing"
+        description="How to contribute to the Nox ecosystem."
+    />
+</Cards>
+
+## Repositories
+
+Nox is developed across multiple repositories.
+Here are the main ones:
+
+<Cards>
+    <Card
+        href={process.env.DOCS_GITHUB_NODE_REPO || "#"}
+        title="Node Server"
+        description="The master server for Nox, handling user accounts, worlds, and more."
+    />
+    <Card 
+        href={process.env.DOCS_GITHUB_CLIENT_REPO || "#"}
+        title="Client"
+        description="The client application for Nox, built with Unity."
+    />
+    <Card
+        href={process.env.DOCS_GITHUB_DOCS_REPO || "#"}
+        title="Documentation"
+        description="The documentation site for Nox."
+    />
+    <Card
+        href={process.env.DOCS_GITHUB_RELAY_REPO || "#"}
+        title="Relay Server"
+        description="The relay server for real-time communication in Nox."
+    />
+</Cards>

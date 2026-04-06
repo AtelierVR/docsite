@@ -1,0 +1,227 @@
+---
+title: Sessions
+description: Récupération de la liste des instances disponibles avec pagination pour la navigation.
+---
+
+Le message **Sessions** permet aux clients de récupérer la liste des instances disponibles sur le serveur.
+
+Il utilise un système de pagination pour gérer efficacement les grandes listes d'instances.
+
+## Priorité
+**Normal** - Ce message a une priorité normale car il s'agit d'une consultation d'informations.
+
+<Callout type="warning">
+
+Le message Sessions **requiert** que le client ait complété le [Handshake](handshake). 
+Les requêtes envoyées avant le handshake seront ignorées par le serveur.
+
+</Callout>
+
+---
+
+## Requête Client → Serveur
+
+### Format du Payload
+```
+[pagination: byte]
+```
+
+### Structure Détaillée
+
+| Type | Nom | Description |
+|------|-----|-------------|
+| byte | Pagination | Numéro de page à récupérer (0-based) |
+
+### Exemple de Requête
+```
+[0x00]                          // Pagination = 0 (première page)
+```
+
+### Exemple de Requête - Page Suivante
+```
+[0x02]                          // Pagination = 2 (troisième page)
+```
+
+---
+
+## Réponse Serveur → Client
+
+### Format du Payload
+```
+[instance_count: byte]
+[current_page: byte]
+[total_pages: byte]
+[instances: Instance[instance_count]]
+```
+
+### Structure d'Instance
+```
+[flags: uint]
+[internal_id: byte]
+[master_id: uint]
+[current_players: ushort]
+[capacity: ushort]
+```
+
+### Structure Détaillée
+
+| Type | Nom | Description |
+|------|-----|-------------|
+| byte | InstanceCount | Nombre d'instances dans cette page |
+| byte | CurrentPage | Numéro de la page actuelle |
+| byte | TotalPages | Nombre total de pages disponibles |
+| uint | Flags | Flags de configuration de l'instance |
+| byte | InternalID | ID interne de l'instance sur ce relay |
+| uint | MasterID | ID de l'instance sur le serveur maître |
+| ushort | CurrentPlayers | Nombre de joueurs actuellement connectés |
+| ushort | Capacity | Capacité maximale de l'instance |
+
+### Instance Flags
+
+| Valeur | Nom | Description |
+|--------|-----|-------------|
+| 0x01 | IsPublic | Instance visible publiquement |
+| 0x02 | UsePassword | Protection par mot de passe |
+| 0x04 | UseWhitelist | Contrôle d'accès par liste blanche |
+| 0x08 | AuthorizeBot | Autorise les connexions de bots |
+| 0x10 | AllowOverload | Permet de dépasser la capacité |
+
+### Exemple de Réponse - Page avec Instances
+```
+[0x02]                          // InstanceCount = 2
+[0x00]                          // CurrentPage = 0
+[0x01]                          // TotalPages = 1
+// Instance 1
+[0x00, 0x00, 0x00, 0x01]        // Flags = IsPublic
+[0x05]                          // InternalID = 5
+[0x00, 0x00, 0x04, 0x2A]        // MasterID = 1066
+[0x00, 0x08]                    // CurrentPlayers = 8
+[0x00, 0x20]                    // Capacity = 32
+// Instance 2
+[0x00, 0x00, 0x00, 0x03]        // Flags = IsPublic | UsePassword
+[0x03]                          // InternalID = 3
+[0x00, 0x00, 0x05, 0x39]        // MasterID = 1337
+[0x00, 0x04]                    // CurrentPlayers = 4
+[0x00, 0x10]                    // Capacity = 16
+```
+
+### Exemple de Réponse - Page Vide
+```
+[0x00]                          // InstanceCount = 0
+[0x02]                          // CurrentPage = 2
+[0x02]                          // TotalPages = 2
+```
+
+### Exemple de Réponse - Page Invalide
+```
+[0x00]                          // InstanceCount = 0
+[0x05]                          // CurrentPage = 5 (demandée)
+[0x03]                          // TotalPages = 3 (maximum disponible)
+```
+
+---
+
+## Système de Pagination
+
+### Calcul Automatique
+Le serveur calcule automatiquement le nombre de pages en fonction :
+- **Taille maximale** : `MaxPacketSize - 2` bytes par page
+- **Limite d'instances** : Maximum 255 instances par page (`byte.MaxValue`)
+- **Taille par instance** : Environ 15 bytes par instance
+
+### Gestion des Pages
+- **Pages 0-based** : La première page est `0`
+- **Page invalide** : Si `pagination >= totalPages`, retourne une page vide
+- **Calcul dynamique** : Le nombre de pages peut changer entre les requêtes
+
+### Optimisation
+Le système optimise automatiquement la répartition pour maximiser l'utilisation de la bande passante disponible.
+
+---
+
+## Traitement
+
+### Côté Serveur
+1. **Validation d'état** : Vérification que le client a complété le handshake
+2. **Lecture de pagination** : Extraction du numéro de page demandé
+3. **Calcul des pages** : Génération dynamique des pages selon la taille de paquet
+4. **Validation de page** : Vérification que la page demandée existe
+5. **Construction de réponse** : Assemblage des données d'instances
+6. **Envoi** : Transmission de la page demandée
+
+### Côté Client
+1. **Envoi de requête** : Spécification de la page désirée
+2. **Réception de réponse** : Traitement des données d'instances
+3. **Gestion de pagination** : Navigation entre les pages disponibles
+4. **Mise à jour d'interface** : Affichage des instances avec leurs statuts
+
+---
+
+## Comportements Spéciaux
+
+### Pages Dynamiques
+Le contenu et le nombre de pages peuvent changer entre les requêtes :
+- Nouvelles instances créées
+- Instances supprimées
+- Changement du nombre de joueurs
+
+### Instances Privées
+Les instances avec `IsPublic = false` ne sont pas incluses dans la liste des sessions publiques.
+
+### Données en Temps Réel
+Les informations retournées reflètent l'état actuel :
+- Nombre de joueurs connectés
+- Statut des flags d'instance
+- Disponibilité des instances
+
+---
+
+## Intégration avec d'Autres Messages
+
+### Relation avec Enter
+Les informations de Sessions permettent de choisir une instance avant d'utiliser [Enter](enter) :
+- **InternalID** : Utilisé pour rejoindre l'instance
+- **Flags** : Indiquent les prérequis (mot de passe, liste blanche)
+- **Capacity** : Permet de vérifier la disponibilité
+
+### Relation avec ServerConfig
+Les changements via [ServerConfig](server-config) affectent immédiatement les données retournées par Sessions.
+
+## Gestion des Erreurs
+
+### Page Inexistante
+Si la page demandée n'existe pas, le serveur retourne :
+- `InstanceCount = 0`
+- `CurrentPage` = page demandée
+- `TotalPages` = nombre réel de pages
+
+### Aucune Instance
+Si le serveur n'a aucune instance publique :
+- `InstanceCount = 0`
+- `CurrentPage = 0`
+- `TotalPages = 0`
+
+### Déconnexion Requise
+Les requêtes avant le handshake sont silencieusement ignorées.
+
+---
+
+## Optimisations
+
+### Mise en Cache
+Les clients peuvent mettre en cache les données de Sessions pour :
+- Réduire la fréquence des requêtes
+- Améliorer la réactivité de l'interface
+- Limiter la charge serveur
+
+### Pagination Intelligente
+Stratégies recommandées :
+- Charger la première page immédiatement
+- Précharger les pages suivantes si nécessaire
+- Actualiser seulement en cas de changement détecté
+
+### Compression
+Le format compact (15 bytes par instance) permet :
+- Environ 68 instances par paquet de 1024 bytes
+- Transmission efficace même avec de nombreuses instances
+- Réduction de la latence réseau

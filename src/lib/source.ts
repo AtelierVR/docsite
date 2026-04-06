@@ -1,12 +1,16 @@
 import { docs } from 'collections/server';
 import { type InferPageType, loader } from 'fumadocs-core/source';
+import { openapiPlugin } from 'fumadocs-openapi/server';
+import * as HeroIcon from '@heroicons/react/24/solid';
+import { createElement } from 'react';
 import { docsContentRoute, docsImageRoute, docsRoute } from './shared';
 
 // See https://fumadocs.dev/docs/headless/source-api for more info
 export const source = loader({
   baseUrl: docsRoute,
   source: docs.toFumadocsSource(),
-  plugins: [],
+  icon: getIcon,
+  plugins: [openapiPlugin()],
 });
 
 export function getPageImage(page: InferPageType<typeof source>) {
@@ -33,4 +37,16 @@ export async function getLLMText(page: InferPageType<typeof source>) {
   return `# ${page.data.title} (${page.url})
 
 ${processed}`;
+}
+
+export function getIcon(icon?: string) {
+  if (!icon) return;
+
+  const iconName = Object.keys(HeroIcon).find(
+    (key) => key.toLowerCase() === (icon.replaceAll('-', '') + 'icon').toLowerCase(),
+  );
+  if (iconName) return createElement(HeroIcon[iconName as keyof typeof HeroIcon]);
+
+  console.warn(`Icon "${icon}" not found.`);
+  return null;
 }

@@ -1,0 +1,19 @@
+{
+    "title": "Relay Protocol",
+    "icon": "chart-bar",
+    "pages": [
+        "index",
+        "disconnect",
+        "handshake",
+        "reliable",
+        "segmentation",
+        "latency",
+        "authentification",
+        "enter",
+        "quit",
+        "join",
+        "leave",
+        "server-config",
+        "sessions"
+    ]
+}

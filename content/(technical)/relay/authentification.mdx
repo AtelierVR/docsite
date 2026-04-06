@@ -1,0 +1,159 @@
+---
+title: Authentification
+description: Authentification des clients via token d'accès avec validation auprès du serveur maître.
+---
+
+Le message **Authentification** permet aux clients de s'authentifier auprès du serveur Relay en utilisant un token d'accès. 
+
+Il valide l'identité du client auprès du serveur maître et établit une session utilisateur.
+
+## Priorité
+**High** - Ce message a une priorité élevée pour permettre un accès rapide aux fonctionnalités.
+
+<Callout type="warning">
+
+Le message Authentification **requiert** que le client ait complété le [Handshake](handshake). 
+Les requêtes envoyées avant le handshake seront ignorées par le serveur.
+
+</Callout>
+
+---
+
+## Requête Client → Serveur
+
+### Format du Payload
+```
+[flags: byte]
+[access_token: string]
+```
+
+### Structure Détaillée
+
+| Type | Nom | Description |
+|------|-----|-------------|
+| byte | Flags | Options d'authentification |
+| string | AccessToken | Token d'accès fourni par le système d'authentification |
+
+### Auth Flags
+
+| Valeur | Nom | Description |
+|--------|-----|-------------|
+| 0x00 | None | Authentification standard |
+| 0x01 | UseIntegrity | Utilise un token d'intégrité au lieu d'un bearer token |
+| 0x02 | UseGuest | Tentative d'accès en tant qu'invité (non supporté) |
+
+### Exemple de Payload
+```
+[0x00]                          // Flags = None
+[0x20, "eyJhbGciOiJIUzI1NiIs..."] // AccessToken (32 chars)
+```
+
+### Authentification avec Integrity
+```
+[0x01]                          // Flags = UseIntegrity
+[0x28, "integrity_token_here..."] // Token d'intégrité (40 chars)
+```
+
+---
+
+## Réponse Serveur → Client
+
+### Format du Payload
+```
+[result: byte]
+(Success == result ? (
+    [user_id: uint]
+    [server_address: string]
+    [display_name: string]
+))
+(Blacklisted == result ? [expire_at: DateTime])
+(Error in result ? [reason?: string])
+```
+
+### Structure Détaillée
+
+| Type | Nom | Description |
+|------|-----|-------------|
+| byte | Result | Code de résultat de l'authentification |
+| uint | UserID | ID unique de l'utilisateur (si succès) |
+| string | ServerAddress | Adresse du serveur de l'utilisateur (si succès) |
+| string | DisplayName | Nom d'affichage de l'utilisateur (si succès) |
+| DateTime | ExpireAt | Timestamp d'expiration du bannissement (si blacklisté) |
+| string | Reason | Raison du bannissement ou message d'erreur |
+
+### Auth Results
+
+| Valeur | Nom | Description |
+|--------|-----|-------------|
+| 0x00 | Success | Authentification réussie |
+| 0x01 | InvalidToken | Token d'accès invalide ou expiré |
+| 0x02 | MasterError | Erreur de communication avec le serveur maître |
+| 0x03 | Blacklisted | Utilisateur banni |
+| 0x04 | Unknown | Erreur inconnue |
+
+### Exemple de Réponse - Succès
+```
+[0x00]                      // Result = Success
+[0x00, 0x00, 0x04, 0x2A]    // UserID = 1066
+[0x0A, "nox.server"]        // ServerAddress = "nox.server"
+[0x0C, "PlayerName123"]     // DisplayName = "PlayerName123"
+```
+
+### Exemple de Réponse - Token Invalide
+```
+[0x01]                          // Result = InvalidToken
+```
+
+### Exemple de Réponse - Blacklisté
+```
+[0x03]                          // Result = Blacklisted
+[0x00, 0x00, 0x01, 0x8A, 0x32, 0x1F, 0x80, 0x00] // ExpireAt (timestamp)
+[0x0F, "Cheating detected"]     // Reason = "Cheating detected"
+```
+
+### Exemple de Réponse - Erreur Maître
+```
+[0x02]                          // Result = MasterError
+[0x14, "Database unavailable"]  // ErrorMessage = "Database unavailable"
+```
+
+---
+
+## Traitement
+
+### Côté Serveur
+1. **Validation d'état** : Vérification que le client a complété le handshake
+2. **Lecture des flags** : Traitement des options d'authentification
+3. **Validation du token** : Vérification que le token n'est pas vide
+4. **Requête au maître** : Validation auprès du serveur maître via `/api/relays/checkbearer`
+5. **Traitement de la réponse** : Attribution des informations utilisateur ou gestion des erreurs
+
+### Côté Client
+1. **Préparation des données** : Assemblage des flags et du token
+2. **Envoi de la requête** : Transmission au serveur
+3. **Traitement de la réponse** : Stockage des informations utilisateur ou gestion des erreurs
+
+---
+
+## Comportements Spéciaux
+
+### Types de Tokens
+- **Bearer Token** (par défaut) : Token d'accès standard
+- **Integrity Token** : Token spécialisé pour les vérifications d'intégrité
+
+### Gestion des Erreurs
+- **Token invalide** : Retourne `InvalidToken`
+- **Erreur réseau** : Retourne `MasterError` avec le message d'erreur
+- **Utilisateur banni** : Retourne `Blacklisted` avec la date d'expiration et la raison.
+Si la date d'expiration est dans le passé (par exemple, 0x00), 
+le client doit traiter l'erreur comme un bannissement permanent.
+
+---
+
+## Codes d'Erreur
+
+### Authentification Échouée
+Si l'authentification échoue, le client peut tenter une nouvelle authentification avec un token différent ou traiter l'erreur selon le code de résultat reçu.
+
+### Connexion Requise
+L'authentification nécessite une connexion active au serveur maître. En cas d'indisponibilité, un `MasterError` sera retourné.

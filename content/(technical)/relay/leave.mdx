@@ -1,0 +1,193 @@
+---
+title: Leave
+description: Notification de départ d'un joueur d'une instance envoyée aux autres participants.
+---
+
+Le message **Leave** est une notification automatique envoyée aux joueurs d'une instance quand un autre joueur la quitte.
+
+Il permet de maintenir la synchronisation de la liste des joueurs présents et d'informer des circonstances du départ.
+
+## Priorité
+**High** - Ce message a une priorité élevée pour maintenir la cohérence de l'état des instances.
+
+<Callout type="info">
+
+Le message Leave est **automatique** et envoyé par le serveur. 
+Les clients ne peuvent pas l'envoyer directement.
+
+</Callout>
+
+---
+
+## Notification Serveur → Client
+
+### Format du Payload
+```
+[instance_id: byte]
+[quit_type: byte]
+[player_id: ushort]
+(ModerationAction ? [moderator_id: ushort] [reason?: string])
+```
+
+### Structure Détaillée
+
+| Type | Nom | Description |
+|------|-----|-------------|
+| byte | InstanceID | ID de l'instance concernée |
+| byte | QuitType | Type de départ (filtré selon les privilèges) |
+| ushort | PlayerID | ID du joueur qui quitte |
+| ushort | ModeratorID | ID du modérateur (si action de modération) |
+| string | Reason | Raison (si action de modération et fournie) |
+
+### Quit Types
+
+| Valeur | Nom | Description |
+|--------|-----|-------------|
+| 0x00 | Normal | Départ volontaire du joueur |
+| 0x01 | Timeout | Déconnexion par timeout |
+| 0x02 | ModerationKick | Expulsion par un modérateur |
+| 0x03 | VoteKick | Expulsion par vote des joueurs |
+| 0x04 | ConfigurationError | Erreur de configuration |
+| 0x05 | UnknownError | Erreur inconnue |
+
+### Exemple de Notification - Départ Normal
+```
+[0x05]                          // InstanceID = 5
+[0x00]                          // QuitType = Normal
+[0x00, 0x03]                    // PlayerID = 3
+```
+
+### Exemple de Notification - Expulsion par Modérateur
+```
+[0x05]                          // InstanceID = 5
+[0x02]                          // QuitType = ModerationKick
+[0x00, 0x03]                    // PlayerID = 3
+[0x00, 0x01]                    // ModeratorID = 1
+[0x0D, "Toxic behavior"]        // Reason = "Toxic behavior"
+```
+
+### Exemple de Notification - Timeout
+```
+[0x02]                          // InstanceID = 2
+[0x01]                          // QuitType = Timeout
+[0x00, 0x07]                    // PlayerID = 7
+```
+
+### Exemple de Notification - Vote Kick
+```
+[0x01]                          // InstanceID = 1
+[0x03]                          // QuitType = VoteKick
+[0x00, 0x05]                    // PlayerID = 5
+[0xFF, 0xFF]                    // ModeratorID = System (65535)
+[0x0A, "Vote passed"]           // Reason = "Vote passed"
+```
+
+---
+
+## Filtrage des Notifications
+
+### Selon les Privilèges
+Le contenu du message `Leave` est filtré selon les privilèges du destinataire :
+
+#### Joueurs Normaux
+- Reçoivent le type de départ réel
+- Voient les informations de modération si applicables
+- N'ont pas accès aux détails sensibles
+
+#### Joueurs Privilégiés
+- Reçoivent toujours `QuitType.Normal` pour préserver la confidentialité
+- Ne voient pas les raisons d'expulsion des autres privilégiés
+- Maintiennent une image publique neutre
+
+#### Modérateur Initiateur
+- Reçoit le type réel avec tous les détails
+- Voit sa propre action confirmée
+- Accès complet aux informations de l'action
+
+### Actions de Modération
+Pour les types `ModerationKick` et `VoteKick`, des informations supplémentaires sont incluses :
+
+| Information | Description | Condition |
+|-------------|-------------|-----------|
+| ModeratorID | ID du modérateur ou du système | Toujours présent |
+| Reason | Raison de l'action | Si fournie lors de l'action |
+
+---
+
+## Traitement
+
+### Côté Client
+1. **Réception** : Message automatique du serveur
+2. **Validation** : Vérification de l'ID d'instance
+3. **Mise à jour locale** : Suppression du joueur de la liste
+4. **Interface utilisateur** : Affichage de la notification selon le type
+5. **Nettoyage** : Suppression des données associées au joueur
+
+### Côté Serveur
+1. **Déclenchement** : Lors d'un [Quit](quit) ou d'une déconnexion
+2. **Filtrage** : Application des règles de privilèges
+3. **Distribution** : Envoi à tous les joueurs concernés
+4. **Journalisation** : Enregistrement de l'événement
+
+---
+
+## Comportements Spéciaux
+
+### Distribution Sélective
+Le message `Leave` n'est envoyé qu'aux joueurs ayant le statut `PlayerStatus.Ready` dans la même instance.
+
+### Nettoyage Automatique
+La réception d'un message `Leave` déclenche automatiquement :
+- Suppression des données de transform du joueur
+- Nettoyage des données d'avatar
+- Mise à jour de l'interface utilisateur
+- Libération des ressources associées
+
+### Gestion des Déconnexions
+En cas de déconnexion brutale d'un client, le serveur génère automatiquement un message `Leave` avec le type approprié (`Timeout` ou `UnknownError`).
+
+---
+
+## Intégration avec d'Autres Messages
+
+### Relation avec Quit
+Le message `Leave` est la notification résultant d'un message [Quit](quit) traité avec succès.
+
+### Relation avec Enter
+Quand un nouveau joueur utilise [Enter](enter), il ne reçoit pas les `Leave` historiques, seulement l'état actuel via [Join](join).
+
+### Synchronisation d'État
+Les messages `Leave` garantissent que tous les clients maintiennent une vue cohérente des joueurs présents dans l'instance.
+
+---
+
+## Gestion des Erreurs
+
+### Instance Invalide
+Si l'ID d'instance dans le message `Leave` ne correspond à aucune instance locale, le message est ignoré silencieusement.
+
+### Joueur Inexistant
+Si le PlayerID ne correspond à aucun joueur connu localement, le message est traité normalement (le joueur pourrait avoir été ajouté après la connexion du client).
+
+### Données Corrompues
+En cas de données malformées, le client doit ignorer le message et maintenir son état actuel.
+
+---
+
+## Exemples d'Utilisation
+
+### Interface Utilisateur
+```
+"PlayerName123 has left the instance"
+"PlayerName456 was kicked by ModeratorABC: Toxic behavior"
+"PlayerName789 timed out"
+"PlayerNameXYZ was vote-kicked: Vote passed"
+```
+
+### Nettoyage de Ressources
+À la réception d'un `Leave`, le client doit :
+1. Supprimer le joueur de toutes les listes actives
+2. Arrêter le rendu de son avatar
+3. Supprimer ses données de position/animation
+4. Mettre à jour les compteurs d'instance
+5. Notifier l'interface utilisateur
