@@ -1,971 +1,1383 @@
-openapi: 3.1.3
-
-info:
-  title: Nox API Documentation
-  version: 0.0.1
-  contact:
-    name: Nox Team
-    url: https://github.com/AtelierVR
-  license:
-    name: AGPL-3.0
-    url: https://www.gnu.org/licenses/agpl-3.0.en.html
-  description: |-
-    The Nox API provides comprehensive functionality for managing multiplayer game experiences, including user authentication, world management, instance control, and social features.
-
-servers:
-  - url: https://nox.hactazia.fr/api
-    description: Production server
-
-tags:
-  - name: users
-    description: Users management and profile operations
-    externalDocs:
-      description: Full Users API Documentation
-      url: ./openapi-users.yaml
-  - name: authentication
-    description: Authentication (login, register, logout)
-    externalDocs:
-      description: Full Authentication API Documentation
-      url: ./openapi-auth.yaml
-  - name: sessions
-    description: Session management
-    externalDocs:
-      description: Full Users API Documentation
-      url: ./openapi-users.yaml
-  - name: tables
-    description: User key-value binary table storage
-    externalDocs:
-      description: Full Tables API Documentation
-      url: ./openapi-tables.yaml
-  - name: avatars
-    description: Avatar management
-    externalDocs:
-      description: Full Avatars API Documentation
-      url: ./openapi-avatars.yaml
-  - name: worlds
-    description: World management
-    externalDocs:
-      description: Full Worlds API Documentation
-      url: ./openapi-worlds.yaml
-  - name: instances
-    description: Instance management
-    externalDocs:
-      description: Full Instances API Documentation
-      url: ./openapi-instances.yaml
-  - name: relations
-    description: User relations (follow/unfollow)
-    externalDocs:
-      description: Full Social API Documentation
-      url: ./openapi-social.yaml
-  - name: notifications
-    description: Notifications management
-    externalDocs:
-      description: Full Social API Documentation
-      url: ./openapi-social.yaml
-  - name: presence
-    description: User presence and location
-    externalDocs:
-      description: Full Social API Documentation
-      url: ./openapi-social.yaml
-  - name: server
-    description: Server information and configuration
-    externalDocs:
-      description: Full Server API Documentation
-      url: ./openapi-server.yaml
-  - name: auth
-    description: Two-factor authentication (TOTP)
-    externalDocs:
-      description: Full Server API Documentation
-      url: ./openapi-server.yaml
-  - name: email
-    description: Email verification
-    externalDocs:
-      description: Full Server API Documentation
-      url: ./openapi-server.yaml
-  - name: relay-admin
-    description: Relay server administration (admin only)
-    externalDocs:
-      description: Full Relays API Documentation
-      url: ./openapi-relays.yaml
-  - name: messages
-    description: Messaging and conversation management
-    externalDocs:
-      description: Full Messages API Documentation
-      url: ./openapi-messages.yaml
-
+openapi: 3.0.0
 paths:
-  /users/@me/integrity:
-    put:
-      operationId: makeUserIntegrity
+  /api/.well-known/webfinger:
+    get:
+      operationId: WellKnownController_webfinger
+      parameters: []
+      responses:
+        '200':
+          description: ''
       tags:
-        - integrity
-      summary: Create user integrity token
-      description: |-
-        Create an integrity token for the current user to join a server.
-      security:
-        - BearerAuth: []
+        - WellKnown
+  /api/.well-known/nodeinfo:
+    get:
+      operationId: WellKnownController_nodeInfo
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      tags:
+        - WellKnown
+  /api/.well-known/host-meta:
+    get:
+      operationId: WellKnownController_hostMeta
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      tags:
+        - WellKnown
+  /api/.well-known/nox:
+    get:
+      operationId: WellKnownController_nox
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      tags:
+        - WellKnown
+  /api/nodeinfo/2.1:
+    get:
+      operationId: NodeInfoController_v21
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      tags:
+        - NodeInfo
+  /api/files/{id}:
+    get:
+      operationId: StorageController_serveFile
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Storage
+  /api/users/@me:
+    get:
+      operationId: UsersController_getCurrent
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Users
+    post:
+      operationId: UsersController_updateCurrent
+      parameters: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/IntegrityVerifyRequest"
+              $ref: '#/components/schemas/UpdateUserDto'
       responses:
-        "200":
-          description: Integrity token created
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/Response"
-                  - type: object
-                    properties:
-                      data:
-                        $ref: "#/components/schemas/IntegrityTokenResponse"
-        "401":
-          description: User not logged in
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/NotLogged"
-        "404":
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UserNotFound"
-
-
-components:
-  schemas:
-    Response:
-      type: object
-      properties:
-        data:
-          type: object
-          description: The main response data
-        request:
-          type: string
-          description: Original request path
-          example: "/api/"
-        time:
-          type: integer
-          format: int64
-          description: Timestamp of the response in milliseconds
-          example: 1750945093437
-      required:
-        - data
-        - request
-        - time
-
-    Error:
-      type: object
-      $ref: "#/components/schemas/Response"
-      description: Error response schema
-      properties:
-        error:
-          type: object
-          properties:
-            message:
-              type: string
-              description: Error message describing the issue
-              example: "Invalid field: limit, must be between 1 and 100."
-            code:
-              type: integer
-              description: Error code indicating the type of error
-              example: 5
-            status:
-              type: integer
-              description: HTTP status code for the error
-              example: 400
-          required:
-            - message
-            - code
-            - status
-
-    UserNotFound:
-      allOf:
-        - $ref: "#/components/schemas/Error"
-        - type: object
-          description: Error response when a user is not found
-          properties:
-            data:
-              type: null
-              description: Always null for user not found errors
-            error:
-              type: object
-              properties:
-                message:
-                  type: string
-                  description: Error message indicating user not found
-                  example: "User not found."
-                code:
-                  type: integer
-                  description: Error code for user not found
-                  example: 2
-                status:
-                  type: integer
-                  description: HTTP status code for user not found
-                  example: 404
-              required:
-                - message
-                - code
-                - status
-          required:
-            - error
-            - data
-
-    NotLogged:
-      allOf:
-        - $ref: "#/components/schemas/Error"
-        - type: object
-          description: Error response when the user is not logged in
-          properties:
-            data:
-              type: null
-              description: Always null for not logged errors
-            error:
-              type: object
-              properties:
-                message:
-                  type: string
-                  description: Error message indicating user is not logged in
-                  example: "You are not logged in."
-                code:
-                  type: integer
-                  description: Error code for not logged in
-                  example: 7
-                status:
-                  type: integer
-                  description: HTTP status code for not logged in
-                  example: 401
-              required:
-                - message
-                - code
-                - status
-          required:
-            - error
-            - data
-
-    UnAuthorized:
-      allOf:
-        - $ref: "#/components/schemas/Error"
-        - type: object
-          description: Error response when the user is not authorized to perform an action
-          properties:
-            data:
-              type: null
-              description: Always null for unauthorized errors
-            error:
-              type: object
-              properties:
-                message:
-                  type: string
-                  description: Error message indicating unauthorized access
-                  example: "You are not authorized to {0}."
-                code:
-                  type: integer
-                  description: Error code for unauthorized access
-                  example: 8
-                status:
-                  type: integer
-                  description: HTTP status code for unauthorized access
-                  example: 401
-              required:
-                - message
-                - code
-                - status
-          required:
-            - error
-            - data
-
-    AlreadyExists:
-      allOf:
-        - $ref: "#/components/schemas/Error"
-        - type: object
-          description: Error response when a resource already exists
-          properties:
-            data:
-              type: null
-              description: Always null for already exists errors
-            error:
-              type: object
-              properties:
-                message:
-                  type: string
-                  description: Error message indicating the resource already exists
-                  example: "{0} already exists with {1}."
-                code:
-                  type: integer
-                  description: Error code for already exists
-                  example: 6
-                status:
-                  type: integer
-                  description: HTTP status code for already exists
-                  example: 409
-              required:
-                - message
-                - code
-                - status
-          required:
-            - error
-            - data
-
-    InvalidField:
-      allOf:
-        - $ref: "#/components/schemas/Error"
-        - type: object
-          description: Error response when a field is invalid
-          properties:
-            data:
-              type: null
-              description: Always null for invalid field errors
-            error:
-              type: object
-              properties:
-                message:
-                  type: string
-                  description: Error message indicating the invalid field
-                  example: "Invalid field: {0}, {1}."
-                code:
-                  type: integer
-                  description: Error code for invalid field
-                  example: 5
-                status:
-                  type: integer
-                  description: HTTP status code for invalid field
-                  example: 400
-              required:
-                - message
-                - code
-                - status
-          required:
-            - error
-            - data
-
-    VerificationRequired:
-      allOf:
-        - $ref: "#/components/schemas/Error"
-        - type: object
-          description: Response when additional verification is required for sensitive changes
-          properties:
-            data:
-              type: object
-              description: Verification methods available for the user
-              properties:
-                methods:
-                  type: array
-                  description: List of verification methods available for the user
-                  items:
-                    type: object
-                    properties:
-                      type:
-                        type: string
-                        enum: [totp, email]
-                        description: Type of verification method
-                      name:
-                        type: string
-                        description: Name of the verification method
-                      description:
-                        type: string
-                        description: Description of the verification method
-                      enabled:
-                        type: boolean
-                        description: Whether this method is currently enabled for the user
-                      can_send:
-                        type: boolean
-                        description: Whether a verification code can be sent using this method
-                    required:
-                      - type
-                      - name
-                      - description
-                      - enabled
-                      - can_send
-                  example:
-                    - type: "totp"
-                      name: "Authenticator App"
-                      description: "Use an authenticator app to generate a verification code"
-                      enabled: true
-                      can_send: false
-                    - type: "email"
-                      name: "Email Verification"
-                      description: "Receive a verification code via email"
-                      enabled: false
-                      can_send: true
-              required:
-                - methods
-            error:
-              type: object
-              properties:
-                message:
-                  type: string
-                  description: Error message indicating verification is required
-                  example: "Additional verification required."
-                code:
-                  type: integer
-                  description: Error code for verification required
-                  example: 20
-                status:
-                  type: integer
-                  description: HTTP status code for verification required
-                  example: 428
-          required:
-            - error
-            - data
-
-    NotFound:
-      allOf:
-        - $ref: "#/components/schemas/Error"
-        - type: object
-          description: Error response when a resource is not found
-          properties:
-            data:
-              type: null
-              description: Always null for not found errors
-            error:
-              type: object
-              properties:
-                message:
-                  type: string
-                  description: Error message indicating the resource was not found
-                  example: "Resource not found."
-                code:
-                  type: integer
-                  description: Error code for not found
-                  example: 3
-                status:
-                  type: integer
-                  description: HTTP status code for not found
-                  example: 404
-              required:
-                - message
-                - code
-                - status
-          required:
-            - error
-            - data
-
-    InternalError:
-      allOf:
-        - $ref: "#/components/schemas/Error"
-        - type: object
-          description: Error response for internal server errors
-          properties:
-            data:
-              type: null
-              description: Always null for internal errors
-            error:
-              type: object
-              properties:
-                message:
-                  type: string
-                  description: Error message indicating an internal server error occurred
-                  example: "An internal error occurred while trying to {0}."
-                code:
-                  type: integer
-                  description: Error code for internal error
-                  example: 9
-                status:
-                  type: integer
-                  description: HTTP status code for internal error
-                  example: 500
-              required:
-                - message
-                - code
-                - status
-          required:
-            - error
-            - data
-
-    User:
-      type: object
-      properties:
-        id:
-          type: integer
-          minimum: 1
-          description: Unique user identifier
-          example: 123
-        username:
-          type: string
-          pattern: "^[a-z0-9_.-]{3,16}$"
-          description: Username (unique identifier)
-          example: "hactazia"
-        display:
-          type: string
-          pattern: "^.{3,32}$"
-          description: Display name
-          example: "Hactazia"
-        server:
-          type: string
-          minLength: 1
-          maxLength: 253
-          description: Server address where the user is registered
-          example: "hactazia.fr"
-        tags:
-          type: array
-          items:
+        '201':
+          description: ''
+      tags:
+        - Users
+  /api/users/@me/thumbnail:
+    post:
+      operationId: UsersController_uploadThumbnail
+      parameters: []
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Users
+    get:
+      operationId: UsersController_serveMyThumbnail
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Users
+  /api/users/@me/banner:
+    post:
+      operationId: UsersController_uploadBanner
+      parameters: []
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Users
+    get:
+      operationId: UsersController_serveMyBanner
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Users
+  /api/users/@admin:
+    get:
+      operationId: UsersController_getAdmin
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Users
+  /api/users:
+    get:
+      operationId: UsersController_search
+      parameters:
+        - name: query
+          required: true
+          in: query
+          schema:
             type: string
-            minLength: 1
-            maxLength: 50
-          minItems: 0
-          maxItems: 50
-          description: User tags and permissions
-          example:
-            [
-              "sys:admin",
-              "dft:can_file_upload",
-              "dft:can_self_edit",
-              "dft:can_world_create",
-              "sys:unverified",
-            ]
-        bio:
-          type: string
-          nullable: true
-          minLength: 0
-          maxLength: 500
-          description: User biography
-          example: "Game developer and VR enthusiast"
-        thumbnail:
-          type: string
-          nullable: true
-          format: uri
-          maxLength: 2048
-          description: URL to user's profile picture
-          example: "https://avr.hactazia.fr/api/users/123/thumbnail"
-        banner:
-          type: string
-          nullable: true
-          format: uri
-          maxLength: 2048
-          description: URL to user's banner image
-          example: "https://avr.hactazia.fr/api/users/123/banner"
-        links:
-          type: array
-          items:
-            type: object
-            properties:
-              label:
+        - name: limit
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: offset
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Users
+  /api/users/@admin/thumbnail:
+    get:
+      operationId: UsersController_serveAdminThumbnail
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Users
+  /api/users/{id}/thumbnail:
+    get:
+      operationId: UsersController_serveThumbnail
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Users
+  /api/users/@admin/banner:
+    get:
+      operationId: UsersController_serveAdminBanner
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Users
+  /api/users/{id}/banner:
+    get:
+      operationId: UsersController_serveBanner
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Users
+  /api/users/@me/following:
+    get:
+      operationId: UsersController_getMyFollowing
+      parameters:
+        - name: limit
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: offset
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Users
+  /api/users/@me/followers:
+    get:
+      operationId: UsersController_getMyFollowers
+      parameters:
+        - name: limit
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: offset
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Users
+  /api/users/{id}/following:
+    get:
+      operationId: UsersController_getFollowing
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: limit
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: offset
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Users
+  /api/users/{id}/followers:
+    get:
+      operationId: UsersController_getFollowers
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: limit
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: offset
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Users
+  /api/users/{id}/follow:
+    post:
+      operationId: UsersController_follow
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Users
+  /api/users/{id}/unfollow:
+    post:
+      operationId: UsersController_unfollow
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Users
+  /api/users/{id}/request:
+    post:
+      operationId: UsersController_respondToRequest
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Users
+  /api/users/{id}:
+    get:
+      operationId: UsersController_getUser
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Users
+  /api/auth/register:
+    post:
+      operationId: AuthController_register
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDto'
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Auth
+  /api/auth/login:
+    post:
+      operationId: AuthController_login
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginDto'
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Auth
+  /api/auth/logout:
+    post:
+      operationId: AuthController_logout
+      parameters: []
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Auth
+  /api/api/relations:
+    post:
+      operationId: RelationsController_s2sRelation
+      parameters: []
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Relations
+  /api/logs:
+    get:
+      operationId: ServerController_getLogs
+      parameters:
+        - name: limit
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: after
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Server
+  /api/configs:
+    get:
+      operationId: ServerController_getConfigs
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Server
+    post:
+      operationId: ServerController_patchConfigs
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
                 type: string
-                description: Display label for the link
-                example: "GitHub"
-              value:
-                type: string
-                format: uri
-                description: The URL
-                example: "https://github.com/hactazia"
-            required:
-              - label
-              - value
-          minItems: 0
-          maxItems: 10
-          description: User's social/profile links
-          example: [{"label": "GitHub", "value": "https://github.com/hactazia"}]
-        rank:
-          type: integer
-          minimum: 0
-          maximum: 1
-          description: User rank given by admins (0 = unverified, 1 = verified)
-          example: 0
-        relations:
-          allOf:
-            - $ref: "#/components/schemas/UserRelations"
-            - example:
-                in: null
-                out: null
-        pronoun:
-          type: string
-          nullable: true
-          description: User's preferred pronoun
-          example: "they/them"
-        certificate:
-          type: string
-          description: User's server certificate in compact format
-          example: "hactazia@hactazia.fr"
-        followers:
-          type: integer
-          minimum: 0
-          description: Number of followers
-          example: 42
-        following:
-          type: integer
-          minimum: 0
-          description: Number of users this user is following
-          example: 17
-        presence:
-          type: object
-          nullable: true
-          description: User's current presence status
-          properties:
-            status:
-              type: string
-              enum:
-                - invisible
-                - join_me_all
-                - join_me_friend
-                - online
-                - idle
-                - dnd
-              description: Current presence/availability status
-            text:
-              type: string
-              nullable: true
-              description: Optional custom status text
-        alias:
-          type: array
-          description: Cross-server alias references for federated identities
-          items:
-            type: object
-            properties:
-              id:
-                type: integer
-                description: Alias record ID
-              server:
-                type: string
-                description: Server hosting the alias
-      required:
-        - id
-        - username
-        - display
-        - server
-        - tags
-        - bio
-        - thumbnail
-        - banner
-        - links
-        - rank
-        - relations
-        - pronoun
-        - certificate
-        - followers
-        - following
-        - presence
-        - alias
-
-    UserMe:
-      allOf:
-        - $ref: "#/components/schemas/User"
-        - type: object
-          properties:
-            email:
-              type: string
-              nullable: true
-              format: email
-              maxLength: 320
-              description: User's email address
-              example: "hactazia@example.com"
-            email_verified:
-              type: boolean
-              description: Whether the user's email has been verified
-              example: false
-            created_at:
-              type: integer
-              format: int64
-              description: User creation timestamp
-              example: 1750936113726
-            home:
-              type: string
-              nullable: true
-              minLength: 1
-              maxLength: 100
-              description: User's home world reference
-              example: "world123@hactazia.fr"
-            twofa_enabled:
-              type: boolean
-              description: Whether two-factor authentication is enabled
-              example: false
-            avatar:
-              type: string
-              nullable: true
-              description: User's current avatar identifier (avatar_id@server format)
-              example: "avatar123@hactazia.fr"
-            relations:
-              type: null
-              description: Always null for the current user endpoint
-          required:
-            - email
-            - email_verified
-            - created_at
-            - home
-            - twofa_enabled
-            - avatar
-            - relations
-
-    UserRelations:
-      type: object
-      nullable: true
-      description: Relationship information between users
-      properties:
-        out:
-          type: string
-          nullable: true
-          minLength: 1
-          maxLength: 50
-          description: Outgoing relationship type from requesting user to this user
-          example: "following"
-        in:
-          type: string
-          nullable: true
-          minLength: 1
-          maxLength: 50
-          description: Incoming relationship type from this user to requesting user
-          example: "follower"
-
-    IRUpdate:
-      type: object
-      properties:
-        max_instances:
-          type: integer
-        port:
-          type: integer
-        use_address:
-          type: string
-        clients:
-          type: array
-          items:
-            $ref: '#/components/schemas/IRUpdateClient'
-        instances:
-          type: array
-          items:
-            $ref: '#/components/schemas/IRUpdateInstance'
-      required:
-        - max_instances
-        - port
-        - use_address
-        - clients
-        - instances
-
-    IRUpdateClient:
-      type: object
-      properties:
-        id:
-          type: integer
-        remote:
-          type: string
-        status:
-          type: string
-        platform:
-          type: string
-        engine:
-          type: string
-        last_seen:
-          type: integer
-        user:
-          type: object
-          properties:
-            id:
-              type: integer
-            address:
-              type: string
-      required:
-        - id
-        - remote
-        - status
-        - platform
-        - engine
-        - last_seen
-
-    IRUpdateInstance:
-      type: object
-      properties:
-        internal_id:
-          type: integer
-        master_id:
-          type: integer
-        flags:
-          type: integer
-        players:
-          type: array
-          items:
-            $ref: '#/components/schemas/IRUpdatePlayer'
-        max_players:
-          type: integer
-      required:
-        - internal_id
-        - master_id
-        - flags
-        - players
-        - max_players
-
-    IRUpdatePlayer:
-      type: object
-      properties:
-        id:
-          type: integer
-        client_id:
-          type: integer
-        display:
-          type: string
-        flags:
-          type: integer
-        status:
-          type: integer
-        created_at:
-          type: integer
-      required:
-        - id
-        - client_id
-        - display
-        - flags
-        - status
-        - created_at
-
-    CheckBearerRequest:
-      type: object
-      properties:
-        access_token:
-          type: string
-        user_id:
-          type: integer
-        token_type:
-          type: string
-      required:
-        - access_token
-        - user_id
-        - token_type
-
-    CheckBearerResponse:
-      type: object
-      properties:
-        valid:
-          type: boolean
-        user:
-          type: object
-          properties:
-            id:
-              type: integer
-            display:
-              type: string
-            server:
-              type: string
-        token_type:
-          type: string
-        access_token:
-          type: string
-      required:
-        - valid
-
-    RelayUpdateResponse:
-      type: object
-      properties:
-        relay:
-          type: integer
-        server:
-          type: string
-        next_update:
-          type: integer
-        instances:
-          type: array
-          items:
-            type: object
-            properties:
-              master_id:
-                type: integer
-              capacity:
-                type: integer
-              password:
-                type: string
-              flags:
-                type: integer
-              world_ref:
-                type: string
-      required:
-        - relay
-        - server
-        - next_update
-        - instances
-
-    ServiceDisabled:
-      allOf:
-        - $ref: "#/components/schemas/Error"
-        - type: object
-          description: Error response when a service is disabled
-          properties:
-            error:
-              type: object
-              properties:
-                message:
-                  type: string
-                  example: "This service is disabled."
-                code:
-                  type: integer
-                  example: 10
-                status:
-                  type: integer
-                  example: 403
-
-    SessionNotFound:
-      allOf:
-        - $ref: "#/components/schemas/Error"
-        - type: object
-          description: Error response when a session is not found
-          properties:
-            error:
-              type: object
-              properties:
-                message:
-                  type: string
-                  example: "Session not found."
-                code:
-                  type: integer
-                  example: 4
-                status:
-                  type: integer
-                  example: 404
-
-    ServerNotFound:
-      allOf:
-        - $ref: "#/components/schemas/Error"
-        - type: object
-          description: Error response when a server is not found
-          properties:
-            error:
-              type: object
-              properties:
-                message:
-                  type: string
-                  example: "Server not found."
-                code:
-                  type: integer
-                  example: 11
-                status:
-                  type: integer
-                  example: 404
-
-    IntegrityVerifyRequest:
-      type: object
-      required:
-        - type
-        - token
-        - user_id
-      properties:
-        type:
-          type: string
-          enum: [in, out]
-        token:
-          type: string
-        user_id:
-          type: integer
-
-    IntegrityTokenResponse:
-      type: object
-      properties:
-        token:
-          type: string
-        expires:
-          type: integer
-          format: int64
-        created_at:
-          type: integer
-          format: int64
-
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Server
+  /api/worlds:
+    get:
+      operationId: WorldsController_search
+      parameters:
+        - name: query
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: limit
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: offset
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Worlds
+    put:
+      operationId: WorldsController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorldDto'
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Worlds
+  /api/worlds/{id}:
+    get:
+      operationId: WorldsController_getWorld
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Worlds
+    post:
+      operationId: WorldsController_updateWorld
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorldDto'
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Worlds
+    delete:
+      operationId: WorldsController_deleteWorld
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Worlds
+  /api/worlds/{id}/thumbnail:
+    get:
+      operationId: WorldsController_getThumbnail
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Worlds
+    post:
+      operationId: WorldsController_uploadThumbnail
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Worlds
+  /api/worlds/{id}/assets:
+    get:
+      operationId: WorldsController_listAssets
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: show_empty
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: limit
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: offset
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Worlds
+    put:
+      operationId: WorldsController_createAsset
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAssetDto'
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Worlds
+  /api/worlds/{id}/assets/{asset_id}/file:
+    post:
+      operationId: WorldsController_uploadAssetFile
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: asset_id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '202':
+          description: ''
+      tags:
+        - Worlds
+    get:
+      operationId: WorldsController_getAssetFile
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: asset_id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Worlds
+  /api/worlds/{id}/assets/{asset_id}/status:
+    get:
+      operationId: WorldsController_getAssetStatus
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: asset_id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Worlds
+  /api/worlds/{id}/assets/{asset_id}:
+    delete:
+      operationId: WorldsController_deleteAsset
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: asset_id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Worlds
+  /api/activity:
+    get:
+      operationId: ActivityController_list
+      parameters:
+        - name: type
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: limit
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: offset
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Activity
+    post:
+      operationId: ActivityController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateActivityEventDto'
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Activity
+  /api/activity/{id}:
+    delete:
+      operationId: ActivityController_remove
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '204':
+          description: ''
+      tags:
+        - Activity
+  /api/users/@me/tables:
+    get:
+      operationId: TablesController_listTables
+      parameters:
+        - name: limit
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: offset
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Tables
+  /api/users/@me/tables/{key}:
+    get:
+      operationId: TablesController_getTable
+      parameters:
+        - name: key
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Tables
+    post:
+      operationId: TablesController_setTable
+      parameters:
+        - name: key
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Tables
+    delete:
+      operationId: TablesController_deleteTable
+      parameters:
+        - name: key
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Tables
+  /api/users/@me/public/{type}:
+    get:
+      operationId: TablesController_getMyPublic
+      parameters:
+        - name: type
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Tables
+  /api/users/@admin/public/{type}:
+    get:
+      operationId: TablesController_getAdminPublic
+      parameters:
+        - name: type
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Tables
+  /api/users/{id}/public/{type}:
+    get:
+      operationId: TablesController_getUserPublic
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: type
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Tables
+  /api/avatars:
+    get:
+      operationId: AvatarsController_search
+      parameters:
+        - name: query
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: limit
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: offset
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Avatars
+    put:
+      operationId: AvatarsController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAvatarDto'
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Avatars
+  /api/avatars/{id}:
+    get:
+      operationId: AvatarsController_getAvatar
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Avatars
+    post:
+      operationId: AvatarsController_updateAvatar
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAvatarDto'
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Avatars
+    delete:
+      operationId: AvatarsController_deleteAvatar
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Avatars
+  /api/avatars/{id}/thumbnail:
+    get:
+      operationId: AvatarsController_getThumbnail
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Avatars
+    post:
+      operationId: AvatarsController_uploadThumbnail
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Avatars
+  /api/avatars/{id}/assets:
+    get:
+      operationId: AvatarsController_listAssets
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: show_empty
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: limit
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: offset
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Avatars
+    put:
+      operationId: AvatarsController_createAsset
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAvatarAssetDto'
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Avatars
+  /api/avatars/{id}/assets/{asset_id}/file:
+    post:
+      operationId: AvatarsController_uploadAssetFile
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: asset_id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '202':
+          description: ''
+      tags:
+        - Avatars
+    get:
+      operationId: AvatarsController_getAssetFile
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: asset_id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Avatars
+  /api/avatars/{id}/assets/{asset_id}/status:
+    get:
+      operationId: AvatarsController_getAssetStatus
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: asset_id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Avatars
+  /api/avatars/{id}/assets/{asset_id}:
+    delete:
+      operationId: AvatarsController_deleteAsset
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: asset_id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Avatars
+  /api/instances:
+    get:
+      operationId: InstancesController_search
+      parameters:
+        - name: q
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: world
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: owner
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: limit
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: offset
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Instances
+    put:
+      operationId: InstancesController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInstanceDto'
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Instances
+  /api/instances/{id}:
+    get:
+      operationId: InstancesController_getOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Instances
+    patch:
+      operationId: InstancesController_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateInstanceDto'
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Instances
+    delete:
+      operationId: InstancesController_remove
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '204':
+          description: ''
+      tags:
+        - Instances
+  /api/relays:
+    get:
+      operationId: RelayController_list
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Relay
+  /api/relays/{id}:
+    get:
+      operationId: RelayController_getOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Relay
+    delete:
+      operationId: RelayController_remove
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Relay
+  /api/relays/{id}/logs:
+    get:
+      operationId: RelayController_getLogs
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: since
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: limit
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Relay
+  /api/relays/{id}/instances:
+    get:
+      operationId: RelayController_getInstances
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: limit
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: offset
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Relay
+  /api/relays/{id}/clients:
+    get:
+      operationId: RelayController_getClients
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: limit
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: offset
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Relay
+  /api/relays/{id}/instances/{iid}/players:
+    get:
+      operationId: RelayController_getInstancePlayers
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: iid
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      tags:
+        - Relay
+  /api/relays/{id}/command:
+    post:
+      operationId: RelayController_sendCommand
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendCommandDto'
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Relay
+  /api/relays/{id}/stop:
+    post:
+      operationId: RelayController_stop
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Relay
+  /api/relays/{id}/restart:
+    post:
+      operationId: RelayController_restart
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '201':
+          description: ''
+      tags:
+        - Relay
+info:
+  title: NOX API
+  description: NOX REST API
+  version: '1.0'
+  contact: {}
+tags: []
+servers: []
+components:
   securitySchemes:
-    BearerAuth:
-      type: http
+    bearer:
       scheme: bearer
-      description: Bearer token authentication for user sessions
-
-    IntegrityAuth:
+      bearerFormat: JWT
+      type: http
+    cookie:
       type: apiKey
-      in: header
-      name: Authorization
-      description: Integrity token authentication (format "Integrity <token>")
+      in: cookie
+      name: session
+  schemas:
+    UpdateUserDto:
+      type: object
+      properties: {}
+    RegisterDto:
+      type: object
+      properties: {}
+    LoginDto:
+      type: object
+      properties: {}
+    CreateWorldDto:
+      type: object
+      properties: {}
+    UpdateWorldDto:
+      type: object
+      properties: {}
+    CreateAssetDto:
+      type: object
+      properties: {}
+    CreateActivityEventDto:
+      type: object
+      properties: {}
+    CreateAvatarDto:
+      type: object
+      properties: {}
+    UpdateAvatarDto:
+      type: object
+      properties: {}
+    CreateAvatarAssetDto:
+      type: object
+      properties: {}
+    CreateInstanceDto:
+      type: object
+      properties: {}
+    UpdateInstanceDto:
+      type: object
+      properties: {}
+    SendCommandDto:
+      type: object
+      properties: {}

@@ -1,0 +1,971 @@
+openapi: 3.1.3
+
+info:
+  title: Nox API Documentation
+  version: 0.0.1
+  contact:
+    name: Nox Team
+    url: https://github.com/AtelierVR
+  license:
+    name: AGPL-3.0
+    url: https://www.gnu.org/licenses/agpl-3.0.en.html
+  description: |-
+    The Nox API provides comprehensive functionality for managing multiplayer game experiences, including user authentication, world management, instance control, and social features.
+
+servers:
+  - url: https://nox.hactazia.fr/api
+    description: Production server
+
+tags:
+  - name: users
+    description: Users management and profile operations
+    externalDocs:
+      description: Full Users API Documentation
+      url: ./openapi-users.yaml
+  - name: authentication
+    description: Authentication (login, register, logout)
+    externalDocs:
+      description: Full Authentication API Documentation
+      url: ./openapi-auth.yaml
+  - name: sessions
+    description: Session management
+    externalDocs:
+      description: Full Users API Documentation
+      url: ./openapi-users.yaml
+  - name: tables
+    description: User key-value binary table storage
+    externalDocs:
+      description: Full Tables API Documentation
+      url: ./openapi-tables.yaml
+  - name: avatars
+    description: Avatar management
+    externalDocs:
+      description: Full Avatars API Documentation
+      url: ./openapi-avatars.yaml
+  - name: worlds
+    description: World management
+    externalDocs:
+      description: Full Worlds API Documentation
+      url: ./openapi-worlds.yaml
+  - name: instances
+    description: Instance management
+    externalDocs:
+      description: Full Instances API Documentation
+      url: ./openapi-instances.yaml
+  - name: relations
+    description: User relations (follow/unfollow)
+    externalDocs:
+      description: Full Social API Documentation
+      url: ./openapi-social.yaml
+  - name: notifications
+    description: Notifications management
+    externalDocs:
+      description: Full Social API Documentation
+      url: ./openapi-social.yaml
+  - name: presence
+    description: User presence and location
+    externalDocs:
+      description: Full Social API Documentation
+      url: ./openapi-social.yaml
+  - name: server
+    description: Server information and configuration
+    externalDocs:
+      description: Full Server API Documentation
+      url: ./openapi-server.yaml
+  - name: auth
+    description: Two-factor authentication (TOTP)
+    externalDocs:
+      description: Full Server API Documentation
+      url: ./openapi-server.yaml
+  - name: email
+    description: Email verification
+    externalDocs:
+      description: Full Server API Documentation
+      url: ./openapi-server.yaml
+  - name: relay-admin
+    description: Relay server administration (admin only)
+    externalDocs:
+      description: Full Relays API Documentation
+      url: ./openapi-relays.yaml
+  - name: messages
+    description: Messaging and conversation management
+    externalDocs:
+      description: Full Messages API Documentation
+      url: ./openapi-messages.yaml
+
+paths:
+  /users/@me/integrity:
+    put:
+      operationId: makeUserIntegrity
+      tags:
+        - integrity
+      summary: Create user integrity token
+      description: |-
+        Create an integrity token for the current user to join a server.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntegrityVerifyRequest"
+      responses:
+        "200":
+          description: Integrity token created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/IntegrityTokenResponse"
+        "401":
+          description: User not logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotLogged"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserNotFound"
+
+
+components:
+  schemas:
+    Response:
+      type: object
+      properties:
+        data:
+          type: object
+          description: The main response data
+        request:
+          type: string
+          description: Original request path
+          example: "/api/"
+        time:
+          type: integer
+          format: int64
+          description: Timestamp of the response in milliseconds
+          example: 1750945093437
+      required:
+        - data
+        - request
+        - time
+
+    Error:
+      type: object
+      $ref: "#/components/schemas/Response"
+      description: Error response schema
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              description: Error message describing the issue
+              example: "Invalid field: limit, must be between 1 and 100."
+            code:
+              type: integer
+              description: Error code indicating the type of error
+              example: 5
+            status:
+              type: integer
+              description: HTTP status code for the error
+              example: 400
+          required:
+            - message
+            - code
+            - status
+
+    UserNotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when a user is not found
+          properties:
+            data:
+              type: null
+              description: Always null for user not found errors
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Error message indicating user not found
+                  example: "User not found."
+                code:
+                  type: integer
+                  description: Error code for user not found
+                  example: 2
+                status:
+                  type: integer
+                  description: HTTP status code for user not found
+                  example: 404
+              required:
+                - message
+                - code
+                - status
+          required:
+            - error
+            - data
+
+    NotLogged:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when the user is not logged in
+          properties:
+            data:
+              type: null
+              description: Always null for not logged errors
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Error message indicating user is not logged in
+                  example: "You are not logged in."
+                code:
+                  type: integer
+                  description: Error code for not logged in
+                  example: 7
+                status:
+                  type: integer
+                  description: HTTP status code for not logged in
+                  example: 401
+              required:
+                - message
+                - code
+                - status
+          required:
+            - error
+            - data
+
+    UnAuthorized:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when the user is not authorized to perform an action
+          properties:
+            data:
+              type: null
+              description: Always null for unauthorized errors
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Error message indicating unauthorized access
+                  example: "You are not authorized to {0}."
+                code:
+                  type: integer
+                  description: Error code for unauthorized access
+                  example: 8
+                status:
+                  type: integer
+                  description: HTTP status code for unauthorized access
+                  example: 401
+              required:
+                - message
+                - code
+                - status
+          required:
+            - error
+            - data
+
+    AlreadyExists:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when a resource already exists
+          properties:
+            data:
+              type: null
+              description: Always null for already exists errors
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Error message indicating the resource already exists
+                  example: "{0} already exists with {1}."
+                code:
+                  type: integer
+                  description: Error code for already exists
+                  example: 6
+                status:
+                  type: integer
+                  description: HTTP status code for already exists
+                  example: 409
+              required:
+                - message
+                - code
+                - status
+          required:
+            - error
+            - data
+
+    InvalidField:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when a field is invalid
+          properties:
+            data:
+              type: null
+              description: Always null for invalid field errors
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Error message indicating the invalid field
+                  example: "Invalid field: {0}, {1}."
+                code:
+                  type: integer
+                  description: Error code for invalid field
+                  example: 5
+                status:
+                  type: integer
+                  description: HTTP status code for invalid field
+                  example: 400
+              required:
+                - message
+                - code
+                - status
+          required:
+            - error
+            - data
+
+    VerificationRequired:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Response when additional verification is required for sensitive changes
+          properties:
+            data:
+              type: object
+              description: Verification methods available for the user
+              properties:
+                methods:
+                  type: array
+                  description: List of verification methods available for the user
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                        enum: [totp, email]
+                        description: Type of verification method
+                      name:
+                        type: string
+                        description: Name of the verification method
+                      description:
+                        type: string
+                        description: Description of the verification method
+                      enabled:
+                        type: boolean
+                        description: Whether this method is currently enabled for the user
+                      can_send:
+                        type: boolean
+                        description: Whether a verification code can be sent using this method
+                    required:
+                      - type
+                      - name
+                      - description
+                      - enabled
+                      - can_send
+                  example:
+                    - type: "totp"
+                      name: "Authenticator App"
+                      description: "Use an authenticator app to generate a verification code"
+                      enabled: true
+                      can_send: false
+                    - type: "email"
+                      name: "Email Verification"
+                      description: "Receive a verification code via email"
+                      enabled: false
+                      can_send: true
+              required:
+                - methods
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Error message indicating verification is required
+                  example: "Additional verification required."
+                code:
+                  type: integer
+                  description: Error code for verification required
+                  example: 20
+                status:
+                  type: integer
+                  description: HTTP status code for verification required
+                  example: 428
+          required:
+            - error
+            - data
+
+    NotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when a resource is not found
+          properties:
+            data:
+              type: null
+              description: Always null for not found errors
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Error message indicating the resource was not found
+                  example: "Resource not found."
+                code:
+                  type: integer
+                  description: Error code for not found
+                  example: 3
+                status:
+                  type: integer
+                  description: HTTP status code for not found
+                  example: 404
+              required:
+                - message
+                - code
+                - status
+          required:
+            - error
+            - data
+
+    InternalError:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response for internal server errors
+          properties:
+            data:
+              type: null
+              description: Always null for internal errors
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: Error message indicating an internal server error occurred
+                  example: "An internal error occurred while trying to {0}."
+                code:
+                  type: integer
+                  description: Error code for internal error
+                  example: 9
+                status:
+                  type: integer
+                  description: HTTP status code for internal error
+                  example: 500
+              required:
+                - message
+                - code
+                - status
+          required:
+            - error
+            - data
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: Unique user identifier
+          example: 123
+        username:
+          type: string
+          pattern: "^[a-z0-9_.-]{3,16}$"
+          description: Username (unique identifier)
+          example: "hactazia"
+        display:
+          type: string
+          pattern: "^.{3,32}$"
+          description: Display name
+          example: "Hactazia"
+        server:
+          type: string
+          minLength: 1
+          maxLength: 253
+          description: Server address where the user is registered
+          example: "hactazia.fr"
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 50
+          minItems: 0
+          maxItems: 50
+          description: User tags and permissions
+          example:
+            [
+              "sys:admin",
+              "dft:can_file_upload",
+              "dft:can_self_edit",
+              "dft:can_world_create",
+              "sys:unverified",
+            ]
+        bio:
+          type: string
+          nullable: true
+          minLength: 0
+          maxLength: 500
+          description: User biography
+          example: "Game developer and VR enthusiast"
+        thumbnail:
+          type: string
+          nullable: true
+          format: uri
+          maxLength: 2048
+          description: URL to user's profile picture
+          example: "https://avr.hactazia.fr/api/users/123/thumbnail"
+        banner:
+          type: string
+          nullable: true
+          format: uri
+          maxLength: 2048
+          description: URL to user's banner image
+          example: "https://avr.hactazia.fr/api/users/123/banner"
+        links:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+                description: Display label for the link
+                example: "GitHub"
+              value:
+                type: string
+                format: uri
+                description: The URL
+                example: "https://github.com/hactazia"
+            required:
+              - label
+              - value
+          minItems: 0
+          maxItems: 10
+          description: User's social/profile links
+          example: [{"label": "GitHub", "value": "https://github.com/hactazia"}]
+        rank:
+          type: integer
+          minimum: 0
+          maximum: 1
+          description: User rank given by admins (0 = unverified, 1 = verified)
+          example: 0
+        relations:
+          allOf:
+            - $ref: "#/components/schemas/UserRelations"
+            - example:
+                in: null
+                out: null
+        pronoun:
+          type: string
+          nullable: true
+          description: User's preferred pronoun
+          example: "they/them"
+        certificate:
+          type: string
+          description: User's server certificate in compact format
+          example: "hactazia@hactazia.fr"
+        followers:
+          type: integer
+          minimum: 0
+          description: Number of followers
+          example: 42
+        following:
+          type: integer
+          minimum: 0
+          description: Number of users this user is following
+          example: 17
+        presence:
+          type: object
+          nullable: true
+          description: User's current presence status
+          properties:
+            status:
+              type: string
+              enum:
+                - invisible
+                - join_me_all
+                - join_me_friend
+                - online
+                - idle
+                - dnd
+              description: Current presence/availability status
+            text:
+              type: string
+              nullable: true
+              description: Optional custom status text
+        alias:
+          type: array
+          description: Cross-server alias references for federated identities
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                description: Alias record ID
+              server:
+                type: string
+                description: Server hosting the alias
+      required:
+        - id
+        - username
+        - display
+        - server
+        - tags
+        - bio
+        - thumbnail
+        - banner
+        - links
+        - rank
+        - relations
+        - pronoun
+        - certificate
+        - followers
+        - following
+        - presence
+        - alias
+
+    UserMe:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          properties:
+            email:
+              type: string
+              nullable: true
+              format: email
+              maxLength: 320
+              description: User's email address
+              example: "hactazia@example.com"
+            email_verified:
+              type: boolean
+              description: Whether the user's email has been verified
+              example: false
+            created_at:
+              type: integer
+              format: int64
+              description: User creation timestamp
+              example: 1750936113726
+            home:
+              type: string
+              nullable: true
+              minLength: 1
+              maxLength: 100
+              description: User's home world reference
+              example: "world123@hactazia.fr"
+            twofa_enabled:
+              type: boolean
+              description: Whether two-factor authentication is enabled
+              example: false
+            avatar:
+              type: string
+              nullable: true
+              description: User's current avatar identifier (avatar_id@server format)
+              example: "avatar123@hactazia.fr"
+            relations:
+              type: null
+              description: Always null for the current user endpoint
+          required:
+            - email
+            - email_verified
+            - created_at
+            - home
+            - twofa_enabled
+            - avatar
+            - relations
+
+    UserRelations:
+      type: object
+      nullable: true
+      description: Relationship information between users
+      properties:
+        out:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 50
+          description: Outgoing relationship type from requesting user to this user
+          example: "following"
+        in:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 50
+          description: Incoming relationship type from this user to requesting user
+          example: "follower"
+
+    IRUpdate:
+      type: object
+      properties:
+        max_instances:
+          type: integer
+        port:
+          type: integer
+        use_address:
+          type: string
+        clients:
+          type: array
+          items:
+            $ref: '#/components/schemas/IRUpdateClient'
+        instances:
+          type: array
+          items:
+            $ref: '#/components/schemas/IRUpdateInstance'
+      required:
+        - max_instances
+        - port
+        - use_address
+        - clients
+        - instances
+
+    IRUpdateClient:
+      type: object
+      properties:
+        id:
+          type: integer
+        remote:
+          type: string
+        status:
+          type: string
+        platform:
+          type: string
+        engine:
+          type: string
+        last_seen:
+          type: integer
+        user:
+          type: object
+          properties:
+            id:
+              type: integer
+            address:
+              type: string
+      required:
+        - id
+        - remote
+        - status
+        - platform
+        - engine
+        - last_seen
+
+    IRUpdateInstance:
+      type: object
+      properties:
+        internal_id:
+          type: integer
+        master_id:
+          type: integer
+        flags:
+          type: integer
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/IRUpdatePlayer'
+        max_players:
+          type: integer
+      required:
+        - internal_id
+        - master_id
+        - flags
+        - players
+        - max_players
+
+    IRUpdatePlayer:
+      type: object
+      properties:
+        id:
+          type: integer
+        client_id:
+          type: integer
+        display:
+          type: string
+        flags:
+          type: integer
+        status:
+          type: integer
+        created_at:
+          type: integer
+      required:
+        - id
+        - client_id
+        - display
+        - flags
+        - status
+        - created_at
+
+    CheckBearerRequest:
+      type: object
+      properties:
+        access_token:
+          type: string
+        user_id:
+          type: integer
+        token_type:
+          type: string
+      required:
+        - access_token
+        - user_id
+        - token_type
+
+    CheckBearerResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        user:
+          type: object
+          properties:
+            id:
+              type: integer
+            display:
+              type: string
+            server:
+              type: string
+        token_type:
+          type: string
+        access_token:
+          type: string
+      required:
+        - valid
+
+    RelayUpdateResponse:
+      type: object
+      properties:
+        relay:
+          type: integer
+        server:
+          type: string
+        next_update:
+          type: integer
+        instances:
+          type: array
+          items:
+            type: object
+            properties:
+              master_id:
+                type: integer
+              capacity:
+                type: integer
+              password:
+                type: string
+              flags:
+                type: integer
+              world_ref:
+                type: string
+      required:
+        - relay
+        - server
+        - next_update
+        - instances
+
+    ServiceDisabled:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when a service is disabled
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "This service is disabled."
+                code:
+                  type: integer
+                  example: 10
+                status:
+                  type: integer
+                  example: 403
+
+    SessionNotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when a session is not found
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Session not found."
+                code:
+                  type: integer
+                  example: 4
+                status:
+                  type: integer
+                  example: 404
+
+    ServerNotFound:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          description: Error response when a server is not found
+          properties:
+            error:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Server not found."
+                code:
+                  type: integer
+                  example: 11
+                status:
+                  type: integer
+                  example: 404
+
+    IntegrityVerifyRequest:
+      type: object
+      required:
+        - type
+        - token
+        - user_id
+      properties:
+        type:
+          type: string
+          enum: [in, out]
+        token:
+          type: string
+        user_id:
+          type: integer
+
+    IntegrityTokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        expires:
+          type: integer
+          format: int64
+        created_at:
+          type: integer
+          format: int64
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token authentication for user sessions
+
+    IntegrityAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Integrity token authentication (format "Integrity <token>")
