@@ -1,7 +1,7 @@
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
-import * as Twoslash from 'fumadocs-twoslash/ui';
+import * as Twoslash from '@/components/twoslash-ui.client';
 import type { MDXComponents } from 'mdx/types';
 import { APIPage } from '@/components/api-page';
 

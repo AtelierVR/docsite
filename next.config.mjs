@@ -6,9 +6,11 @@ const basePath = process.env.NEXT_BASE_PATH || '';
 
 /** @type {import('next').NextConfig} */
 const config = {
-  output: process.env.NODE_ENV === 'production'
+  output: process.env.NEXT_OUTPUT === 'export'
     ? 'export'
-    : undefined,
+    : process.env.NEXT_OUTPUT === 'standalone'
+      ? 'standalone'
+      : undefined,
   reactStrictMode: true,
   assetPrefix: basePath,
   basePath: basePath,
@@ -19,7 +21,7 @@ const config = {
     }
   ]),
   images: {
-    unoptimized: process.env.NODE_ENV === 'production',
+    unoptimized: process.env.NEXT_OUTPUT === 'export',
   },
   allowedDevOrigins: process.env.ALLOWED_DEV_ORIGINS
     ? process.env.ALLOWED_DEV_ORIGINS.split(',').map(s => s.trim())
