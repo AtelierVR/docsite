@@ -1,47 +1,35 @@
-# docs
+<div align="center">
+  <img src="public/logo.png" width="320" alt="NoxVR" />
+  <h1>Documentation</h1>
+  <p>Official documentation site for the NoxVR social VR platform.</p>
 
-This is a Next.js application generated with
-[Create Fumadocs](https://github.com/fuma-nama/fumadocs).
+  ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js&logoColor=white)
+  ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)
+  ![Fumadocs](https://img.shields.io/badge/Fumadocs-MDX-f97316)
+  ![License](https://img.shields.io/badge/License-AGPL--3.0-22c55e)
 
-It is a Next.js app with [Static Export](https://nextjs.org/docs/app/guides/static-exports) configured.
+  <p>Part of the <a href="https://github.com/AtelierVR"><strong>NoxVR</strong></a> ecosystem</p>
+</div>
 
-Run development server:
+---
 
-```bash
-npm run dev
-# or
-pnpm dev
-# or
-yarn dev
-```
+## Overview
 
-Open http://localhost:3000 with your browser to see the result.
+This is the official documentation site for [NoxVR](https://github.com/AtelierVR), a federated social VR platform. Built with **Next.js** and **Fumadocs**, it covers:
 
-## Explore
+- **API Reference** — auto-generated from the OpenAPI spec of the node server
+- **Guides** — avatar creation, world building, shader setup
+- **Technical Docs** — relay protocol, session management, segmentation
+- **SDK / Integration** — how to connect clients to the NoxVR network
 
-In the project, you can see:
+## Documentation
 
-- `lib/source.ts`: Code for content source adapter, [`loader()`](https://fumadocs.dev/docs/headless/source-api) provides the interface to access your content.
-- `lib/layout.shared.tsx`: Shared options for layouts, optional but preferred to keep.
+- [Getting Started](docs/getting-started.md) — installation, API generation, build
+- [Structure](docs/structure.md) — content and source layout
 
-| Route                     | Description                                            |
-| ------------------------- | ------------------------------------------------------ |
-| `app/(home)`              | The route group for your landing page and other pages. |
-| `app/docs`                | The documentation layout and pages.                    |
-| `app/api/search/route.ts` | The Route Handler for search.                          |
+---
 
-### Fumadocs MDX
-
-A `source.config.ts` config file has been included, you can customise different options like frontmatter schema.
-
-Read the [Introduction](https://fumadocs.dev/docs/mdx) for further details.
-
-## Learn More
-
-To learn more about Next.js and Fumadocs, take a look at the following
-resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js
-  features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [Fumadocs](https://fumadocs.dev) - learn about Fumadocs
+<div align="center">
+  <p>Made with ♥ by <a href="https://github.com/AtelierVR">AtelierVR</a> &nbsp;·&nbsp; <a href="https://www.gnu.org/licenses/agpl-3.0">AGPL-3.0</a></p>
+  <p>Part of the <strong>NoxVR</strong> project — a federated social VR platform</p>
+</div>
