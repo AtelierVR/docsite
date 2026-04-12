@@ -2081,6 +2081,393 @@ paths:
       summary: S2S relation sync
       tags:
         - Relations (S2S)
+  /api/activity:
+    get:
+      description: Paginated list of activity events. Admin only.
+      operationId: ActivityController_list
+      parameters:
+        - name: q
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: type
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: limit
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: offset
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - error
+                  - time
+                  - request
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ApiActivityEventResponseDtoListDto'
+                    description: Response payload.
+                  error:
+                    type: 'null'
+                    example: null
+                    description: Always null for successful responses.
+                  time:
+                    type: integer
+                    example: 1680000000000
+                    description: Unix timestamp (ms) when the response was generated.
+                  request:
+                    type: string
+                    example: /api/endpoint
+                    description: Request path that produced this response.
+        '401':
+          description: Unauthorized — authentication required.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - error
+                  - time
+                  - request
+                properties:
+                  data:
+                    type: 'null'
+                    example: null
+                    description: Always null for error responses.
+                  error:
+                    $ref: '#/components/schemas/ApiErrorDetailsDto'
+                    description: Error details object.
+                  time:
+                    type: integer
+                    example: 1680000000000
+                    description: Unix timestamp (ms) when the response was generated.
+                  request:
+                    type: string
+                    example: /api/endpoint
+                    description: Request path that produced this response.
+        '403':
+          description: Forbidden — insufficient permissions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - error
+                  - time
+                  - request
+                properties:
+                  data:
+                    type: 'null'
+                    example: null
+                    description: Always null for error responses.
+                  error:
+                    $ref: '#/components/schemas/ApiErrorDetailsDto'
+                    description: Error details object.
+                  time:
+                    type: integer
+                    example: 1680000000000
+                    description: Unix timestamp (ms) when the response was generated.
+                  request:
+                    type: string
+                    example: /api/endpoint
+                    description: Request path that produced this response.
+      security:
+        - bearer: []
+      summary: List activity events
+      tags:
+        - Activity
+    post:
+      description: Manually emit an activity event. Admin only.
+      operationId: ActivityController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateActivityEventDto'
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - error
+                  - time
+                  - request
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ApiActivityEventResponseDto'
+                    description: Response payload.
+                  error:
+                    type: 'null'
+                    example: null
+                    description: Always null for successful responses.
+                  time:
+                    type: integer
+                    example: 1680000000000
+                    description: Unix timestamp (ms) when the response was generated.
+                  request:
+                    type: string
+                    example: /api/endpoint
+                    description: Request path that produced this response.
+        '400':
+          description: Bad request — invalid parameters or body.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - error
+                  - time
+                  - request
+                properties:
+                  data:
+                    type: 'null'
+                    example: null
+                    description: Always null for error responses.
+                  error:
+                    $ref: '#/components/schemas/ApiErrorDetailsDto'
+                    description: Error details object.
+                  time:
+                    type: integer
+                    example: 1680000000000
+                    description: Unix timestamp (ms) when the response was generated.
+                  request:
+                    type: string
+                    example: /api/endpoint
+                    description: Request path that produced this response.
+        '401':
+          description: Unauthorized — authentication required.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - error
+                  - time
+                  - request
+                properties:
+                  data:
+                    type: 'null'
+                    example: null
+                    description: Always null for error responses.
+                  error:
+                    $ref: '#/components/schemas/ApiErrorDetailsDto'
+                    description: Error details object.
+                  time:
+                    type: integer
+                    example: 1680000000000
+                    description: Unix timestamp (ms) when the response was generated.
+                  request:
+                    type: string
+                    example: /api/endpoint
+                    description: Request path that produced this response.
+        '403':
+          description: Forbidden — insufficient permissions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - error
+                  - time
+                  - request
+                properties:
+                  data:
+                    type: 'null'
+                    example: null
+                    description: Always null for error responses.
+                  error:
+                    $ref: '#/components/schemas/ApiErrorDetailsDto'
+                    description: Error details object.
+                  time:
+                    type: integer
+                    example: 1680000000000
+                    description: Unix timestamp (ms) when the response was generated.
+                  request:
+                    type: string
+                    example: /api/endpoint
+                    description: Request path that produced this response.
+      security:
+        - bearer: []
+      summary: Create activity event
+      tags:
+        - Activity
+  /api/activity/{id}:
+    delete:
+      description: Remove an activity event by ID. Admin only.
+      operationId: ActivityController_remove
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - error
+                  - time
+                  - request
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ApiSuccessDto'
+                    description: Response payload.
+                  error:
+                    type: 'null'
+                    example: null
+                    description: Always null for successful responses.
+                  time:
+                    type: integer
+                    example: 1680000000000
+                    description: Unix timestamp (ms) when the response was generated.
+                  request:
+                    type: string
+                    example: /api/endpoint
+                    description: Request path that produced this response.
+        '400':
+          description: Bad request — invalid parameters or body.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - error
+                  - time
+                  - request
+                properties:
+                  data:
+                    type: 'null'
+                    example: null
+                    description: Always null for error responses.
+                  error:
+                    $ref: '#/components/schemas/ApiErrorDetailsDto'
+                    description: Error details object.
+                  time:
+                    type: integer
+                    example: 1680000000000
+                    description: Unix timestamp (ms) when the response was generated.
+                  request:
+                    type: string
+                    example: /api/endpoint
+                    description: Request path that produced this response.
+        '401':
+          description: Unauthorized — authentication required.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - error
+                  - time
+                  - request
+                properties:
+                  data:
+                    type: 'null'
+                    example: null
+                    description: Always null for error responses.
+                  error:
+                    $ref: '#/components/schemas/ApiErrorDetailsDto'
+                    description: Error details object.
+                  time:
+                    type: integer
+                    example: 1680000000000
+                    description: Unix timestamp (ms) when the response was generated.
+                  request:
+                    type: string
+                    example: /api/endpoint
+                    description: Request path that produced this response.
+        '403':
+          description: Forbidden — insufficient permissions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - error
+                  - time
+                  - request
+                properties:
+                  data:
+                    type: 'null'
+                    example: null
+                    description: Always null for error responses.
+                  error:
+                    $ref: '#/components/schemas/ApiErrorDetailsDto'
+                    description: Error details object.
+                  time:
+                    type: integer
+                    example: 1680000000000
+                    description: Unix timestamp (ms) when the response was generated.
+                  request:
+                    type: string
+                    example: /api/endpoint
+                    description: Request path that produced this response.
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - error
+                  - time
+                  - request
+                properties:
+                  data:
+                    type: 'null'
+                    example: null
+                    description: Always null for error responses.
+                  error:
+                    $ref: '#/components/schemas/ApiErrorDetailsDto'
+                    description: Error details object.
+                  time:
+                    type: integer
+                    example: 1680000000000
+                    description: Unix timestamp (ms) when the response was generated.
+                  request:
+                    type: string
+                    example: /api/endpoint
+                    description: Request path that produced this response.
+      security:
+        - bearer: []
+      summary: Delete activity event
+      tags:
+        - Activity
   /api/logs:
     get:
       description: Return recent in-memory log entries. Admin only.
@@ -2430,7 +2817,7 @@ paths:
       tags:
         - Worlds
     put:
-      description: Create a new world owned by the authenticated user.
+      description: Create a new world owned by the authenticated user (local or federated).
       operationId: WorldsController_create
       parameters: []
       requestBody:
@@ -3198,7 +3585,7 @@ paths:
           in: path
           schema:
             type: string
-        - name: show_empty
+        - name: empty
           required: true
           in: query
           schema:
@@ -4009,388 +4396,6 @@ paths:
       summary: Delete world asset
       tags:
         - Worlds
-  /api/activity:
-    get:
-      description: Paginated list of activity events. Admin only.
-      operationId: ActivityController_list
-      parameters:
-        - name: type
-          required: true
-          in: query
-          schema:
-            type: string
-        - name: limit
-          required: true
-          in: query
-          schema:
-            type: string
-        - name: offset
-          required: true
-          in: query
-          schema:
-            type: string
-      responses:
-        '200':
-          description: ''
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - data
-                  - error
-                  - time
-                  - request
-                properties:
-                  data:
-                    $ref: '#/components/schemas/ApiActivityEventResponseDtoListDto'
-                    description: Response payload.
-                  error:
-                    type: 'null'
-                    example: null
-                    description: Always null for successful responses.
-                  time:
-                    type: integer
-                    example: 1680000000000
-                    description: Unix timestamp (ms) when the response was generated.
-                  request:
-                    type: string
-                    example: /api/endpoint
-                    description: Request path that produced this response.
-        '401':
-          description: Unauthorized — authentication required.
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - data
-                  - error
-                  - time
-                  - request
-                properties:
-                  data:
-                    type: 'null'
-                    example: null
-                    description: Always null for error responses.
-                  error:
-                    $ref: '#/components/schemas/ApiErrorDetailsDto'
-                    description: Error details object.
-                  time:
-                    type: integer
-                    example: 1680000000000
-                    description: Unix timestamp (ms) when the response was generated.
-                  request:
-                    type: string
-                    example: /api/endpoint
-                    description: Request path that produced this response.
-        '403':
-          description: Forbidden — insufficient permissions.
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - data
-                  - error
-                  - time
-                  - request
-                properties:
-                  data:
-                    type: 'null'
-                    example: null
-                    description: Always null for error responses.
-                  error:
-                    $ref: '#/components/schemas/ApiErrorDetailsDto'
-                    description: Error details object.
-                  time:
-                    type: integer
-                    example: 1680000000000
-                    description: Unix timestamp (ms) when the response was generated.
-                  request:
-                    type: string
-                    example: /api/endpoint
-                    description: Request path that produced this response.
-      security:
-        - bearer: []
-      summary: List activity events
-      tags:
-        - Activity
-    post:
-      description: Manually emit an activity event. Admin only.
-      operationId: ActivityController_create
-      parameters: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateActivityEventDto'
-      responses:
-        '201':
-          description: ''
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - data
-                  - error
-                  - time
-                  - request
-                properties:
-                  data:
-                    $ref: '#/components/schemas/ApiActivityEventResponseDto'
-                    description: Response payload.
-                  error:
-                    type: 'null'
-                    example: null
-                    description: Always null for successful responses.
-                  time:
-                    type: integer
-                    example: 1680000000000
-                    description: Unix timestamp (ms) when the response was generated.
-                  request:
-                    type: string
-                    example: /api/endpoint
-                    description: Request path that produced this response.
-        '400':
-          description: Bad request — invalid parameters or body.
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - data
-                  - error
-                  - time
-                  - request
-                properties:
-                  data:
-                    type: 'null'
-                    example: null
-                    description: Always null for error responses.
-                  error:
-                    $ref: '#/components/schemas/ApiErrorDetailsDto'
-                    description: Error details object.
-                  time:
-                    type: integer
-                    example: 1680000000000
-                    description: Unix timestamp (ms) when the response was generated.
-                  request:
-                    type: string
-                    example: /api/endpoint
-                    description: Request path that produced this response.
-        '401':
-          description: Unauthorized — authentication required.
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - data
-                  - error
-                  - time
-                  - request
-                properties:
-                  data:
-                    type: 'null'
-                    example: null
-                    description: Always null for error responses.
-                  error:
-                    $ref: '#/components/schemas/ApiErrorDetailsDto'
-                    description: Error details object.
-                  time:
-                    type: integer
-                    example: 1680000000000
-                    description: Unix timestamp (ms) when the response was generated.
-                  request:
-                    type: string
-                    example: /api/endpoint
-                    description: Request path that produced this response.
-        '403':
-          description: Forbidden — insufficient permissions.
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - data
-                  - error
-                  - time
-                  - request
-                properties:
-                  data:
-                    type: 'null'
-                    example: null
-                    description: Always null for error responses.
-                  error:
-                    $ref: '#/components/schemas/ApiErrorDetailsDto'
-                    description: Error details object.
-                  time:
-                    type: integer
-                    example: 1680000000000
-                    description: Unix timestamp (ms) when the response was generated.
-                  request:
-                    type: string
-                    example: /api/endpoint
-                    description: Request path that produced this response.
-      security:
-        - bearer: []
-      summary: Create activity event
-      tags:
-        - Activity
-  /api/activity/{id}:
-    delete:
-      description: Remove an activity event by ID. Admin only.
-      operationId: ActivityController_remove
-      parameters:
-        - name: id
-          required: true
-          in: path
-          schema:
-            type: string
-      responses:
-        '200':
-          description: ''
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - data
-                  - error
-                  - time
-                  - request
-                properties:
-                  data:
-                    $ref: '#/components/schemas/ApiSuccessDto'
-                    description: Response payload.
-                  error:
-                    type: 'null'
-                    example: null
-                    description: Always null for successful responses.
-                  time:
-                    type: integer
-                    example: 1680000000000
-                    description: Unix timestamp (ms) when the response was generated.
-                  request:
-                    type: string
-                    example: /api/endpoint
-                    description: Request path that produced this response.
-        '400':
-          description: Bad request — invalid parameters or body.
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - data
-                  - error
-                  - time
-                  - request
-                properties:
-                  data:
-                    type: 'null'
-                    example: null
-                    description: Always null for error responses.
-                  error:
-                    $ref: '#/components/schemas/ApiErrorDetailsDto'
-                    description: Error details object.
-                  time:
-                    type: integer
-                    example: 1680000000000
-                    description: Unix timestamp (ms) when the response was generated.
-                  request:
-                    type: string
-                    example: /api/endpoint
-                    description: Request path that produced this response.
-        '401':
-          description: Unauthorized — authentication required.
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - data
-                  - error
-                  - time
-                  - request
-                properties:
-                  data:
-                    type: 'null'
-                    example: null
-                    description: Always null for error responses.
-                  error:
-                    $ref: '#/components/schemas/ApiErrorDetailsDto'
-                    description: Error details object.
-                  time:
-                    type: integer
-                    example: 1680000000000
-                    description: Unix timestamp (ms) when the response was generated.
-                  request:
-                    type: string
-                    example: /api/endpoint
-                    description: Request path that produced this response.
-        '403':
-          description: Forbidden — insufficient permissions.
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - data
-                  - error
-                  - time
-                  - request
-                properties:
-                  data:
-                    type: 'null'
-                    example: null
-                    description: Always null for error responses.
-                  error:
-                    $ref: '#/components/schemas/ApiErrorDetailsDto'
-                    description: Error details object.
-                  time:
-                    type: integer
-                    example: 1680000000000
-                    description: Unix timestamp (ms) when the response was generated.
-                  request:
-                    type: string
-                    example: /api/endpoint
-                    description: Request path that produced this response.
-        '404':
-          description: Not found.
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - data
-                  - error
-                  - time
-                  - request
-                properties:
-                  data:
-                    type: 'null'
-                    example: null
-                    description: Always null for error responses.
-                  error:
-                    $ref: '#/components/schemas/ApiErrorDetailsDto'
-                    description: Error details object.
-                  time:
-                    type: integer
-                    example: 1680000000000
-                    description: Unix timestamp (ms) when the response was generated.
-                  request:
-                    type: string
-                    example: /api/endpoint
-                    description: Request path that produced this response.
-      security:
-        - bearer: []
-      summary: Delete activity event
-      tags:
-        - Activity
   /api/users/@me/tables:
     get:
       description: Return metadata for all key/value table entries of the current user.
@@ -4932,6 +4937,140 @@ paths:
       summary: Get admin public entry
       tags:
         - Tables
+  /api/users/{id}/public:
+    get:
+      description: >-
+        Return the list of public table entries for a given user (no auth
+        required).
+      operationId: TablesController_listUserPublic
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+        - name: limit
+          required: true
+          in: query
+          schema:
+            type: string
+        - name: offset
+          required: true
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - error
+                  - time
+                  - request
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PublicTableListDto'
+                    description: Response payload.
+                  error:
+                    type: 'null'
+                    example: null
+                    description: Always null for successful responses.
+                  time:
+                    type: integer
+                    example: 1680000000000
+                    description: Unix timestamp (ms) when the response was generated.
+                  request:
+                    type: string
+                    example: /api/endpoint
+                    description: Request path that produced this response.
+        '400':
+          description: Bad request — invalid parameters or body.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - error
+                  - time
+                  - request
+                properties:
+                  data:
+                    type: 'null'
+                    example: null
+                    description: Always null for error responses.
+                  error:
+                    $ref: '#/components/schemas/ApiErrorDetailsDto'
+                    description: Error details object.
+                  time:
+                    type: integer
+                    example: 1680000000000
+                    description: Unix timestamp (ms) when the response was generated.
+                  request:
+                    type: string
+                    example: /api/endpoint
+                    description: Request path that produced this response.
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - error
+                  - time
+                  - request
+                properties:
+                  data:
+                    type: 'null'
+                    example: null
+                    description: Always null for error responses.
+                  error:
+                    $ref: '#/components/schemas/ApiErrorDetailsDto'
+                    description: Error details object.
+                  time:
+                    type: integer
+                    example: 1680000000000
+                    description: Unix timestamp (ms) when the response was generated.
+                  request:
+                    type: string
+                    example: /api/endpoint
+                    description: Request path that produced this response.
+        '501':
+          description: Not implemented.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                  - error
+                  - time
+                  - request
+                properties:
+                  data:
+                    type: 'null'
+                    example: null
+                    description: Always null for error responses.
+                  error:
+                    $ref: '#/components/schemas/ApiErrorDetailsDto'
+                    description: Error details object.
+                  time:
+                    type: integer
+                    example: 1680000000000
+                    description: Unix timestamp (ms) when the response was generated.
+                  request:
+                    type: string
+                    example: /api/endpoint
+                    description: Request path that produced this response.
+      summary: List user public tables
+      tags:
+        - Tables
   /api/users/{id}/public/{type}:
     get:
       description: >-
@@ -5364,7 +5503,9 @@ paths:
       tags:
         - Avatars
     post:
-      description: Update avatar metadata (owner or admin only).
+      description: >-
+        Update avatar metadata (owner, contributor, or admin). Only the owner
+        can change contributors.
       operationId: AvatarsController_updateAvatar
       parameters:
         - name: id
@@ -5881,7 +6022,7 @@ paths:
           in: path
           schema:
             type: string
-        - name: show_empty
+        - name: empty
           required: true
           in: query
           schema:
@@ -8968,8 +9109,23 @@ components:
           type: string
           description: Node.js runtime version
           example: 20.0.0
+        terms:
+          type: string
+          description: Terms of service document version
+          example: '1.0'
+        privacy:
+          type: string
+          description: Privacy policy document version
+          example: '1.0'
+        rules:
+          type: string
+          description: Rules document version
+          example: '1.0'
       required:
         - node
+        - terms
+        - privacy
+        - rules
     NoxMetadataDto:
       type: object
       properties:
@@ -9726,6 +9882,87 @@ components:
       required:
         - identifier
         - password
+    ApiActivityEventResponseDto:
+      type: object
+      properties:
+        id:
+          type: number
+          description: Internal numeric event ID
+          example: 1
+        type:
+          type: string
+          description: Dot-namespaced event type (e.g. user.registered)
+          example: user.registered
+        message:
+          type: string
+          description: Human-readable event message
+          example: A new user registered.
+        details:
+          type: object
+          description: Optional structured event details, or null
+          example: null
+          nullable: true
+        author:
+          type: string
+          description: NoxIdentifier of the user who triggered the event, or null
+          example: u:1@my-server.com
+          nullable: true
+        created_at:
+          type: string
+          description: ISO 8601 timestamp of when the event occurred
+          example: '2024-01-01T00:00:00.000Z'
+      required:
+        - id
+        - type
+        - message
+        - created_at
+    ApiActivityEventResponseDtoListDto:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 100
+          description: Total number of matching records.
+        limit:
+          type: integer
+          example: 10
+          description: Page size limit.
+        offset:
+          type: integer
+          example: 0
+          description: Page offset.
+        items:
+          description: List of items.
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiActivityEventResponseDto'
+      required:
+        - total
+        - items
+    CreateActivityEventDto:
+      type: object
+      properties:
+        type:
+          type: string
+          example: user.registered
+          description: Event type identifier
+        message:
+          type: string
+          example: A new user registered.
+        details:
+          type: object
+          example:
+            userId: 42
+          nullable: true
+          description: Optional structured details
+        author:
+          type: string
+          example: u:1@my-server.com
+          nullable: true
+          description: NoxIdentifier string of the author. Omit for system events.
+      required:
+        - type
+        - message
     ServerLogEntryDto:
       type: object
       properties:
@@ -9870,6 +10107,11 @@ components:
           type: number
           description: Internal numeric world ID
           example: 1
+        name:
+          type: string
+          description: Short unique name [a-z0-9-_.]{3,8}, or null if not set
+          example: myworld
+          nullable: true
         title:
           type: string
           description: World display name
@@ -9953,9 +10195,17 @@ components:
     CreateWorldDto:
       type: object
       properties:
+        id:
+          type: number
+          description: Custom numeric world ID. If omitted, one is auto-assigned.
+          example: 42
+        name:
+          type: string
+          description: Short unique name [a-z0-9-_.]{3,8}. Left null if omitted.
+          example: myworld
         title:
           type: string
-          description: World display name
+          description: World display name (defaults to "<display>'s World" if omitted)
           example: My World
         description:
           type: string
@@ -9965,19 +10215,21 @@ components:
         capacity:
           type: number
           example: 32
-          description: Maximum concurrent players (0–65535)
+          description: Maximum concurrent players (0–65535), defaults to 32 if omitted
         contributors:
           example: []
           description: NoxIdentifier list of contributors
           type: array
           items:
             type: string
-      required:
-        - title
-        - capacity
     UpdateWorldDto:
       type: object
       properties:
+        name:
+          type: string
+          description: Short unique name [a-z0-9-_.]{3,8}, or null to clear
+          example: myworld2
+          nullable: true
         title:
           type: string
           description: New world display name
@@ -10007,6 +10259,13 @@ components:
           example: 2
           nullable: true
           description: Set recommended release version. null = auto (latest).
+        tags:
+          description: User-defined tags (only usr:* tags are accepted)
+          example:
+            - usr:pvp
+          type: array
+          items:
+            type: string
     ApiWorldAssetDto:
       type: object
       properties:
@@ -10160,87 +10419,6 @@ components:
           nullable: true
       required:
         - status
-    ApiActivityEventResponseDto:
-      type: object
-      properties:
-        id:
-          type: number
-          description: Internal numeric event ID
-          example: 1
-        type:
-          type: string
-          description: Dot-namespaced event type (e.g. user.registered)
-          example: user.registered
-        message:
-          type: string
-          description: Human-readable event message
-          example: A new user registered.
-        details:
-          type: object
-          description: Optional structured event details, or null
-          example: null
-          nullable: true
-        author:
-          type: string
-          description: NoxIdentifier of the user who triggered the event, or null
-          example: u:1@my-server.com
-          nullable: true
-        created_at:
-          type: string
-          description: ISO 8601 timestamp of when the event occurred
-          example: '2024-01-01T00:00:00.000Z'
-      required:
-        - id
-        - type
-        - message
-        - created_at
-    ApiActivityEventResponseDtoListDto:
-      type: object
-      properties:
-        total:
-          type: integer
-          example: 100
-          description: Total number of matching records.
-        limit:
-          type: integer
-          example: 10
-          description: Page size limit.
-        offset:
-          type: integer
-          example: 0
-          description: Page offset.
-        items:
-          description: List of items.
-          type: array
-          items:
-            $ref: '#/components/schemas/ApiActivityEventResponseDto'
-      required:
-        - total
-        - items
-    CreateActivityEventDto:
-      type: object
-      properties:
-        type:
-          type: string
-          example: user.registered
-          description: Event type identifier
-        message:
-          type: string
-          example: A new user registered.
-        details:
-          type: object
-          example:
-            userId: 42
-          nullable: true
-          description: Optional structured details
-        author:
-          type: string
-          example: u:1@my-server.com
-          nullable: true
-          description: NoxIdentifier string of the author. Omit for system events.
-      required:
-        - type
-        - message
     ApiTableEntryDto:
       type: object
       properties:
@@ -10273,7 +10451,7 @@ components:
     TableListDataDto:
       type: object
       properties:
-        tables:
+        items:
           description: Table entries
           type: array
           items:
@@ -10291,7 +10469,7 @@ components:
           description: Total number of entries for this user
           example: 42
       required:
-        - tables
+        - items
         - limit
         - offset
         - total
@@ -10329,6 +10507,55 @@ components:
       required:
         - key
         - updated_at
+    PublicTableMetaDto:
+      type: object
+      properties:
+        key:
+          type: string
+          description: Table key (e.g. public.favorites)
+          example: public.favorites
+        mime:
+          type: string
+          description: MIME type
+          example: application/json+favorite
+        hash:
+          type: string
+          description: SHA-256 hash of the stored value (hex)
+          example: a3f1...
+        updated_at:
+          type: number
+          description: Unix timestamp (ms) of last update
+          example: 1680000000000
+      required:
+        - key
+        - mime
+        - hash
+        - updated_at
+    PublicTableListDto:
+      type: object
+      properties:
+        items:
+          description: List of public table entries
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicTableMetaDto'
+        limit:
+          type: number
+          description: Page size
+          example: 20
+        offset:
+          type: number
+          description: Page offset
+          example: 0
+        total:
+          type: number
+          description: Total number of public entries
+          example: 5
+      required:
+        - items
+        - limit
+        - offset
+        - total
     ApiAvatarDto:
       type: object
       properties:
@@ -10336,6 +10563,11 @@ components:
           type: number
           description: Internal numeric avatar ID
           example: 1
+        name:
+          type: string
+          description: Short unique name [a-z0-9-_.]{3,8}, or null
+          example: my-avatar
+          nullable: true
         title:
           type: string
           description: Avatar display name
@@ -10368,6 +10600,12 @@ components:
           type: string
           description: Owner NoxIdentifier
           example: 1@my-server.com
+        contributors:
+          description: Contributor NoxIdentifiers
+          example: []
+          type: array
+          items:
+            type: string
         alias:
           description: Aliases (NoxIdentifier extras)
           type: array
@@ -10380,6 +10618,7 @@ components:
         - release
         - server
         - owner
+        - contributors
         - alias
     ApiAvatarDtoListDto:
       type: object
@@ -10407,6 +10646,14 @@ components:
     CreateAvatarDto:
       type: object
       properties:
+        id:
+          type: number
+          description: Custom numeric avatar ID. If omitted, one is auto-assigned.
+          example: 42
+        name:
+          type: string
+          description: Short unique name [a-z0-9-_.]{3,8}. Left null if omitted.
+          example: myavatar
         title:
           type: string
           description: Avatar display name
@@ -10415,11 +10662,20 @@ components:
           type: string
           example: A detailed avatar description
           nullable: true
-      required:
-        - title
+        contributors:
+          example: []
+          description: NoxIdentifier list of contributors
+          type: array
+          items:
+            type: string
     UpdateAvatarDto:
       type: object
       properties:
+        name:
+          type: string
+          description: Short unique name [a-z0-9-_.]{3,8}, or null to clear
+          example: my-avatar
+          nullable: true
         title:
           type: string
           description: New avatar display name
@@ -10439,6 +10695,12 @@ components:
           example: 2
           nullable: true
           description: Set recommended release version. null = auto (latest).
+        contributors:
+          description: NoxIdentifier list of contributors
+          example: []
+          type: array
+          items:
+            type: string
     ApiAvatarAssetDto:
       type: object
       properties:
