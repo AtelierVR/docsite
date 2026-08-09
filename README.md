@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/logo.png" width="320" alt="NoxVR" />
+  <img src=".github/header.png" width="640" alt="NoxVR" />
   <h1>Documentation</h1>
   <p>Official documentation site for the NoxVR social VR platform.</p>
 
